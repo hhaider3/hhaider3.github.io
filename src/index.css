@@ -545,6 +545,13 @@
        justify-content: center;
        align-items: center;
    }
+
+   .hero-widgets {
+       width: min(100%, 420px);
+       display: flex;
+       flex-direction: column;
+       align-items: stretch;
+   }
    
    .visual-card-wrapper {
        position: relative;
@@ -1041,7 +1048,7 @@
        .proportional-timeline {
            --timeline-gutter: 52px;
            max-width: 760px;
-           margin-top: 36px;
+           margin-top: 0;
            padding: 0;
        }
 
@@ -1085,7 +1092,11 @@
        .exp-details-wrapper {
            grid-template-rows: 1fr;
            opacity: 1;
-           margin-top: 18px;
+           margin-top: 14px;
+       }
+
+       .exp-details-inner {
+           gap: 14px;
        }
    }
 
@@ -1107,6 +1118,16 @@
            padding: 20px;
        }
 
+       .exp-header {
+           flex-direction: column;
+           gap: 10px;
+       }
+
+       .exp-title-group {
+           flex: 0 1 auto;
+           width: 100%;
+       }
+
        .exp-role {
            font-size: 18px;
        }
@@ -1118,6 +1139,14 @@
        .exp-meta,
        .exp-bullets {
            font-size: 14px;
+       }
+
+       .exp-details-wrapper {
+           margin-top: 12px;
+       }
+
+       .exp-details-inner {
+           gap: 12px;
        }
    }
 
@@ -1783,28 +1812,87 @@
    }
    
    @media (max-width: 768px) {
+       .container { padding: 0 20px; }
+       .section-padding { padding: 64px 0; }
+       .section-header { margin-bottom: 38px; }
+       .bg-gradient-glow {
+           left: 0;
+           width: 100%;
+       }
+       .fade-in-left,
+       .fade-in-right {
+           transform: translateY(20px);
+       }
+       .fade-in-up {
+           transform: translateY(16px);
+       }
        .navbar { display: none; }
        .download-cv-btn { display: none; }
        .mobile-menu-toggle { display: flex; }
        .hero-title { font-size: 38px; }
+       .hero-section { min-height: auto; padding: 96px 0 64px; }
+       .hero-container { gap: 44px; }
+       .hero-visual { width: 100%; }
+       .hero-widgets { width: min(100%, 344px); }
+       .hero-subtitle { margin-bottom: 28px; }
+       .hero-cta { margin-bottom: 28px; }
+       .projects-controls { margin-bottom: 28px; }
+       .projects-grid { gap: 24px; }
+       .project-content,
+       .skills-category-card,
+       .pub-card {
+           padding: 24px;
+       }
+       .contact-grid { gap: 36px; }
        .form-group-row { grid-template-columns: 1fr; gap: 0; }
        .form-group-row .form-group:first-child { margin-bottom: 20px; }
        .footer-bottom { flex-direction: column; text-align: center; }
    }
    
    @media (max-width: 480px) {
+       .container { padding: 0 18px; }
+       .section-padding { padding: 56px 0; }
+       .section-header { margin-bottom: 30px; }
        .hero-title { font-size: 32px; }
        .hero-cta { flex-direction: column; width: 100%; gap: 12px; }
        .hero-cta .btn { width: 100%; }
        .highlights-grid { grid-template-columns: 1fr; }
        .skills-grid { grid-template-columns: 1fr; }
-       .contact-form-container { padding: 24px; }
-       .exp-header { flex-direction: column; gap: 12px; }
+       .project-content,
+       .skills-category-card,
+       .pub-card,
+       .contact-form-container {
+           padding: 20px;
+       }
        .exp-meta { flex-direction: column; gap: 8px; }
        .speed-badge { left: -16px; }
        .code-badge { right: -16px; }
-       .dual-clock-widget { flex-direction: column; gap: 12px; }
-       .clock-divider { flex-direction: row; }
+       .dual-clock-widget { flex-direction: row; gap: 10px; }
+       .clock-card {
+           min-width: 0;
+           padding: 14px 12px;
+       }
+       .clock-label {
+           font-size: 10px;
+           letter-spacing: 0.8px;
+       }
+       .clock-time { font-size: 22px; }
+       .clock-divider {
+           flex-direction: column;
+           gap: 4px;
+           padding: 0;
+       }
+   }
+
+   @media (max-width: 360px) {
+       .dual-clock-widget {
+           flex-direction: column;
+           gap: 12px;
+       }
+
+       .clock-divider {
+           flex-direction: row;
+       }
    }
 
    /* ==========================================================================
@@ -1815,6 +1903,7 @@
        align-items: center;
        gap: 16px;
        margin-top: 32px;
+       width: 100%;
    }
 
    .clock-card {
@@ -1934,6 +2023,10 @@
    /* ==========================================================================
       COLOR SWITCHER
       ========================================================================== */
+   .color-switcher-inline {
+       width: 100%;
+   }
+
    .color-switcher-fab {
        position: fixed;
        bottom: 28px;
