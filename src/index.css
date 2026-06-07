@@ -1831,8 +1831,26 @@
        .mobile-menu-toggle { display: flex; }
        .hero-title { font-size: 38px; }
        .hero-section { min-height: auto; padding: 96px 0 64px; }
-       .hero-container { gap: 44px; }
-       .hero-visual { width: 100%; }
+       .hero-container {
+           gap: 44px;
+           min-width: 0;
+       }
+       .hero-content,
+       .hero-visual {
+           width: 100%;
+           max-width: 100%;
+           min-width: 0;
+           justify-self: stretch;
+       }
+       .hero-title,
+       .hero-subtitle,
+       .hero-cta {
+           width: 100%;
+           max-width: 100%;
+       }
+       .hero-title {
+           overflow-wrap: anywhere;
+       }
        .hero-widgets { width: min(100%, 344px); }
        .hero-subtitle { margin-bottom: 28px; }
        .hero-cta { margin-bottom: 28px; }
