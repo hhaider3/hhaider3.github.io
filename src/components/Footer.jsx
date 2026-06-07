@@ -22,7 +22,7 @@ const Footer = () => {
           <p>&copy; 2026 Hasan Haider. All rights reserved.</p>
           <div className="social-links-footer">
             <a href="https://github.com/hhaider3" target="_blank" rel="noreferrer" aria-label="GitHub"><FaGithub size={18} /></a>
-            <a href="https://linkedin.com/" target="_blank" rel="noreferrer" aria-label="LinkedIn"><FaLinkedin size={18} /></a>
+            <a href="https://www.linkedin.com/in/hasan-haider-52026a67/" target="_blank" rel="noreferrer" aria-label="LinkedIn"><FaLinkedin size={18} /></a>
             <a href="mailto:hasanhaider009@gmail.com" aria-label="Email"><Mail size={18} /></a>
           </div>
         </div>

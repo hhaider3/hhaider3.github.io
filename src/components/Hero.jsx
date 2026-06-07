@@ -26,7 +26,7 @@ const Hero = ({ theme }) => {
             <a href="https://github.com/hhaider3" target="_blank" rel="noreferrer" aria-label="GitHub" className="social-icon">
               <FaGithub size={20} />
             </a>
-            <a href="https://linkedin.com/" target="_blank" rel="noreferrer" aria-label="LinkedIn" className="social-icon">
+            <a href="https://www.linkedin.com/in/hasan-haider-52026a67/" target="_blank" rel="noreferrer" aria-label="LinkedIn" className="social-icon">
               <FaLinkedin size={20} />
             </a>
             <a href="mailto:hasanhaider009@gmail.com" aria-label="Email" className="social-icon">
