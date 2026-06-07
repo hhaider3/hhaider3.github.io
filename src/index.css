@@ -1885,32 +1885,6 @@
        .exp-meta { flex-direction: column; gap: 8px; }
        .speed-badge { left: -16px; }
        .code-badge { right: -16px; }
-       .dual-clock-widget { flex-direction: row; gap: 10px; }
-       .clock-card {
-           min-width: 0;
-           padding: 14px 12px;
-       }
-       .clock-label {
-           font-size: 10px;
-           letter-spacing: 0.8px;
-       }
-       .clock-time { font-size: 22px; }
-       .clock-divider {
-           flex-direction: column;
-           gap: 4px;
-           padding: 0;
-       }
-   }
-
-   @media (max-width: 360px) {
-       .dual-clock-widget {
-           flex-direction: column;
-           gap: 12px;
-       }
-
-       .clock-divider {
-           flex-direction: row;
-       }
    }
 
    /* ==========================================================================
@@ -2031,6 +2005,36 @@
 
    .clock-diff.same {
        color: var(--success);
+   }
+
+   @media (max-width: 480px) {
+       .dual-clock-widget {
+           flex-direction: column;
+           align-items: stretch;
+           gap: 10px;
+       }
+
+       .clock-card {
+           width: 100%;
+           min-width: 0;
+           padding: 14px 16px;
+       }
+
+       .clock-label {
+           font-size: 10px;
+           letter-spacing: 0.8px;
+       }
+
+       .clock-time {
+           font-size: 24px;
+       }
+
+       .clock-divider {
+           align-self: center;
+           flex-direction: row;
+           gap: 4px;
+           padding: 0;
+       }
    }
 
    /* Terminal card warm glow */
