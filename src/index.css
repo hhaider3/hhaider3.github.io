@@ -1616,6 +1616,10 @@
    .form-group.error .error-msg {
        display: block;
    }
+
+   .form-honeypot {
+       display: none;
+   }
    
    /* ==========================================================================
       FOOTER
@@ -1703,6 +1707,10 @@
        opacity: 0;
        transform: translateY(100px);
        pointer-events: none;
+   }
+
+   .toast.error {
+       border-left-color: var(--danger);
    }
    
    .toast-content {
