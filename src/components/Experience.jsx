@@ -75,10 +75,16 @@ const monthToDate = (monthNumber) => ({
   month: (monthNumber % 12) + 1,
 });
 
-const getStartOffset = (date) => ((toMonthNumber(date) - timelineStartMonth) / timelineMonthSpan) * timelineHeight;
-const getEndOffset = (date) => ((toMonthNumber(date) + 1 - timelineStartMonth) / timelineMonthSpan) * timelineHeight;
+const getMonthTopOffset = (date) => {
+  const monthNumber = toMonthNumber(date);
+  return ((timelineEndMonth - monthNumber - 1) / timelineMonthSpan) * timelineHeight;
+};
+const getMonthBottomOffset = (date) => {
+  const monthNumber = toMonthNumber(date);
+  return ((timelineEndMonth - monthNumber) / timelineMonthSpan) * timelineHeight;
+};
 const formatMonthYear = ({ year, month }) => `${monthNames[month - 1]} ${year}`;
-const getEstimatedCardHeight = (item) => (item.type === 'work' ? 340 : 260);
+const estimatedCardHeight = 240;
 
 const importantMonths = new Set(
   timelineData.flatMap(item => [toMonthNumber(item.start), toMonthNumber(item.end)])
@@ -98,7 +104,7 @@ const axisTicks = Array.from({ length: timelineMonthSpan }, (_, index) => {
 
   return {
     id: `${date.year}-${date.month}`,
-    top: (index / timelineMonthSpan) * timelineHeight,
+    top: getMonthTopOffset(date),
     label,
     isYear,
     isImportant,
@@ -107,22 +113,22 @@ const axisTicks = Array.from({ length: timelineMonthSpan }, (_, index) => {
 
 const timelineItemsByDate = timelineData
   .map(item => {
-    const startOffset = getStartOffset(item.start);
-    const endOffset = getEndOffset(item.end);
+    const periodTopOffset = getMonthTopOffset(item.end);
+    const periodBottomOffset = getMonthBottomOffset(item.start);
 
     return {
       ...item,
       lane: item.type === 'work' ? 'left' : 'right',
-      startOffset,
-      durationOffset: Math.max(28, endOffset - startOffset),
+      periodTopOffset,
+      durationOffset: Math.max(28, periodBottomOffset - periodTopOffset),
     };
   })
-  .sort((a, b) => toMonthNumber(a.start) - toMonthNumber(b.start));
+  .sort((a, b) => toMonthNumber(b.end) - toMonthNumber(a.end));
 
 const timelineItems = timelineItemsByDate.reduce((items, item) => {
   const laneBottoms = items.laneBottoms || { work: 0, education: 0 };
-  const cardOffset = Math.max(item.startOffset, laneBottoms[item.type]);
-  const nextLaneBottom = cardOffset + getEstimatedCardHeight(item) + 32;
+  const cardOffset = Math.max(item.periodTopOffset, laneBottoms[item.type]);
+  const nextLaneBottom = cardOffset + estimatedCardHeight + 32;
 
   items.laneBottoms = {
     ...laneBottoms,
@@ -180,7 +186,7 @@ const Experience = () => {
                   key={`${item.id}-period`}
                   className={`timeline-period timeline-period-${item.type} timeline-period-${item.lane}`}
                   style={{
-                    '--period-top': `${item.startOffset}px`,
+                    '--period-top': `${item.periodTopOffset}px`,
                     '--period-height': `${item.durationOffset}px`
                   }}
                   aria-hidden="true"

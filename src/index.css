@@ -827,6 +827,7 @@
        right: 0;
        height: 1px;
        transform: translateY(-50%);
+       z-index: 4;
    }
 
    .timeline-tick-mark {
@@ -855,15 +856,19 @@
    .timeline-tick-label {
        position: absolute;
        top: 50%;
-       left: calc(50% + 42px);
+       left: calc(50% + 58px);
        max-width: 72px;
        transform: translateY(-50%);
        color: var(--text-muted);
+       background: rgba(10, 14, 23, 0.9);
+       border-radius: 4px;
+       padding: 1px 3px;
        font-size: 10px;
        font-weight: 700;
        line-height: 1.1;
        text-align: left;
        white-space: normal;
+       z-index: 5;
    }
 
    .timeline-tick.is-year .timeline-tick-label {
@@ -906,19 +911,24 @@
 
    .timeline-period-dot {
        position: absolute;
-       top: -8px;
+       top: -6px;
        left: 50%;
-       width: 34px;
-       height: 34px;
+       width: 30px;
+       height: 30px;
        border-radius: 50%;
        transform: translateX(-50%);
        background-color: var(--bg-secondary);
        border: 2px solid currentColor;
        color: var(--primary);
-       box-shadow: 0 0 0 7px var(--bg-secondary);
+       box-shadow: 0 0 0 5px var(--bg-secondary);
        display: flex;
        align-items: center;
        justify-content: center;
+   }
+
+   .timeline-period-dot svg {
+       width: 15px;
+       height: 15px;
    }
 
    .timeline-period-education .timeline-period-dot {
@@ -953,9 +963,9 @@
    }
 
    .timeline-right {
-       left: calc(50% + var(--timeline-axis-half) + 22px);
-       width: min(470px, calc(50% - var(--timeline-axis-half) - 28px));
-   }
+        left: calc(50% + var(--timeline-axis-half) + 50px);
+        width: min(470px, calc(50% - var(--timeline-axis-half) - 56px));
+    }
 
    .timeline-left::before {
        right: -22px;
@@ -963,13 +973,16 @@
    }
 
    .timeline-right::before {
-       left: -22px;
-       background: linear-gradient(90deg, var(--primary), rgba(var(--primary-rgb), 0.15));
-   }
+        left: -50px;
+        width: 50px;
+        background: linear-gradient(90deg, var(--primary), rgba(var(--primary-rgb), 0.15));
+    }
 
    .timeline-right.timeline-education::before {
-       background: linear-gradient(90deg, var(--secondary), rgba(var(--secondary-rgb), 0.15));
-   }
+        left: -50px;
+        width: 50px;
+        background: linear-gradient(90deg, var(--secondary), rgba(var(--secondary-rgb), 0.15));
+    }
 
    .timeline-mobile-marker {
        display: none;
@@ -1166,7 +1179,7 @@
        }
 
        .timeline-tick-label {
-           left: calc(50% + 34px);
+           left: calc(50% + 48px);
            max-width: 56px;
            font-size: 9px;
        }
