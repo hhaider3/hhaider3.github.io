@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Palette, RotateCcw } from 'lucide-react';
+import { WALLPAPER_COLOR_DEFAULTS } from '../constants/colors';
 
 // Convert hex to RGB
 const hexToRgb = (hex) => {
@@ -45,12 +46,6 @@ const hslToHex = (h, s, l) => {
 const darkenHex = (hex, amount) => {
   const { h, s, l } = hexToHsl(hex);
   return hslToHex(h, s, Math.max(0, l - amount));
-};
-
-// Default colors for reset
-const DEFAULTS = {
-  dark: { primary: '#f59e0b', secondary: '#14b8a6' },
-  light: { primary: '#b45309', secondary: '#0d9488' },
 };
 
 // Color wheel canvas renderer
@@ -164,11 +159,19 @@ const ColorWheel = ({ size, selectedHue, selectedSat, onSelect }) => {
   );
 };
 
-const ColorSwitcher = ({ theme, wheelSize = 160 }) => {
+const ColorSwitcher = ({
+  theme,
+  wheelSize = 160,
+  colors,
+  onColorsChange,
+  compact = false
+}) => {
   const [editingColor, setEditingColor] = useState('primary');
-  const [themeColors, setThemeColors] = useState(DEFAULTS);
+  const [internalColors, setInternalColors] = useState(WALLPAPER_COLOR_DEFAULTS);
 
-  const currentColors = themeColors[theme] || DEFAULTS.dark;
+  const themeColors = colors || internalColors;
+  const setThemeColors = onColorsChange || setInternalColors;
+  const currentColors = themeColors[theme] || WALLPAPER_COLOR_DEFAULTS.dark;
   const primaryColor = currentColors.primary;
   const secondaryColor = currentColors.secondary;
 
@@ -183,9 +186,13 @@ const ColorSwitcher = ({ theme, wheelSize = 160 }) => {
       root.style.setProperty('--primary', hex);
       root.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
       root.style.setProperty('--primary-hover', darkenHex(hex, 12));
+      root.style.setProperty('--wallpaper-primary', hex);
+      root.style.setProperty('--wallpaper-primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
     } else {
       root.style.setProperty('--secondary', hex);
       root.style.setProperty('--secondary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+      root.style.setProperty('--wallpaper-secondary', hex);
+      root.style.setProperty('--wallpaper-secondary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
     }
   }, []);
 
@@ -193,11 +200,11 @@ const ColorSwitcher = ({ theme, wheelSize = 160 }) => {
     setThemeColors(prev => ({
       ...prev,
       [theme]: {
-        ...(prev[theme] || DEFAULTS[theme] || DEFAULTS.dark),
+        ...(prev[theme] || WALLPAPER_COLOR_DEFAULTS[theme] || WALLPAPER_COLOR_DEFAULTS.dark),
         [target]: hex
       }
     }));
-  }, [theme]);
+  }, [setThemeColors, theme]);
 
   const handleWheelSelect = useCallback((hue, sat) => {
     const hex = hslToHex(hue, sat, lightness);
@@ -212,7 +219,7 @@ const ColorSwitcher = ({ theme, wheelSize = 160 }) => {
   };
 
   const handleReset = () => {
-    const defaults = theme === 'dark' ? DEFAULTS.dark : DEFAULTS.light;
+    const defaults = theme === 'dark' ? WALLPAPER_COLOR_DEFAULTS.dark : WALLPAPER_COLOR_DEFAULTS.light;
     setThemeColors(prev => ({
       ...prev,
       [theme]: defaults
@@ -225,7 +232,7 @@ const ColorSwitcher = ({ theme, wheelSize = 160 }) => {
   }, [primaryColor, secondaryColor, applyColor]);
 
   return (
-    <div className="color-switcher-inline">
+    <div className={`color-switcher-inline ${compact ? 'compact' : ''}`}>
       <div className="cs-header">
         <h4 className="cs-title">
           <Palette size={16} /> Customize Colors

@@ -11,6 +11,7 @@ import {
   Maximize2,
   Minimize2,
   Minus,
+  Palette,
   Power,
   RotateCw,
   User,
@@ -26,9 +27,38 @@ import Publications from './Publications';
 import Contact from './Contact';
 import DualClock from './DualClock';
 import ColorSwitcher from './ColorSwitcher';
+import { WALLPAPER_COLOR_DEFAULTS } from '../constants/colors';
 import wallpaper from '../assets/win7-portfolio-wallpaper.png';
 
 const linkedInUrl = 'https://www.linkedin.com/in/hasan-haider-52026a67/';
+const colorStorageKey = 'portfolioThemeColors';
+
+const getInitialThemeColors = () => {
+  if (typeof window === 'undefined') {
+    return WALLPAPER_COLOR_DEFAULTS;
+  }
+
+  const savedColors = window.localStorage.getItem(colorStorageKey);
+  if (!savedColors) {
+    return WALLPAPER_COLOR_DEFAULTS;
+  }
+
+  try {
+    const parsedColors = JSON.parse(savedColors);
+    return {
+      dark: {
+        ...WALLPAPER_COLOR_DEFAULTS.dark,
+        ...(parsedColors.dark || {})
+      },
+      light: {
+        ...WALLPAPER_COLOR_DEFAULTS.light,
+        ...(parsedColors.light || {})
+      }
+    };
+  } catch {
+    return WALLPAPER_COLOR_DEFAULTS;
+  }
+};
 
 const TaskbarClock = () => {
   const [now, setNow] = useState(new Date());
@@ -83,7 +113,17 @@ const DesktopIcon = ({ item, isSelected, onSelect, onOpen }) => {
   );
 };
 
-const BrowserWindow = ({ app, isMaximized, onClose, onMinimize, onToggleMaximize }) => {
+const BrowserWindow = ({
+  app,
+  isMaximized,
+  onClose,
+  onMinimize,
+  onToggleMaximize,
+  theme,
+  themeColors,
+  onThemeColorsChange
+}) => {
+  const [isColorPanelOpen, setIsColorPanelOpen] = useState(false);
   const Content = app.component;
 
   return (
@@ -96,18 +136,43 @@ const BrowserWindow = ({ app, isMaximized, onClose, onMinimize, onToggleMaximize
           <span>{app.title}</span>
         </div>
 
-        <div className="window-controls" aria-label="Window controls">
-          <button type="button" aria-label="Minimize window" onClick={onMinimize}>
-            <Minus size={14} />
+        <div className="window-title-actions">
+          <button
+            type="button"
+            className={`window-color-button ${isColorPanelOpen ? 'active' : ''}`}
+            aria-label="Open color switcher"
+            aria-expanded={isColorPanelOpen}
+            title="Colors"
+            onClick={() => setIsColorPanelOpen(prev => !prev)}
+          >
+            <Palette size={14} />
           </button>
-          <button type="button" aria-label="Toggle maximize window" onClick={onToggleMaximize}>
-            {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          </button>
-          <button type="button" className="window-close" aria-label="Close window" onClick={onClose}>
-            <X size={14} />
-          </button>
+
+          <div className="window-controls" aria-label="Window controls">
+            <button type="button" aria-label="Minimize window" onClick={onMinimize}>
+              <Minus size={14} />
+            </button>
+            <button type="button" aria-label="Toggle maximize window" onClick={onToggleMaximize}>
+              {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+            <button type="button" className="window-close" aria-label="Close window" onClick={onClose}>
+              <X size={14} />
+            </button>
+          </div>
         </div>
       </div>
+
+      {isColorPanelOpen && (
+        <div className="window-color-popover">
+          <ColorSwitcher
+            theme={theme}
+            colors={themeColors}
+            onColorsChange={onThemeColorsChange}
+            wheelSize={92}
+            compact
+          />
+        </div>
+      )}
 
       <div className="browser-toolbar">
         <div className="browser-nav-buttons" aria-hidden="true">
@@ -134,6 +199,11 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isStartOpen, setIsStartOpen] = useState(false);
+  const [themeColors, setThemeColors] = useState(getInitialThemeColors);
+
+  useEffect(() => {
+    window.localStorage.setItem(colorStorageKey, JSON.stringify(themeColors));
+  }, [themeColors]);
 
   const internalApps = useMemo(() => [
     {
@@ -256,7 +326,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   return (
     <div
       className="win7-desktop"
-      style={{ backgroundImage: `url(${wallpaper})` }}
+      style={{ '--desktop-wallpaper-url': `url(${wallpaper})` }}
       onClick={(event) => {
         if (event.target.classList.contains('win7-desktop')) {
           setSelectedId(null);
@@ -296,7 +366,12 @@ const DesktopShell = ({ theme, toggleTheme }) => {
           </section>
 
           <section className="glass-widget widget-colors">
-            <ColorSwitcher theme={theme} wheelSize={108} />
+            <ColorSwitcher
+              theme={theme}
+              colors={themeColors}
+              onColorsChange={setThemeColors}
+              wheelSize={108}
+            />
           </section>
         </aside>
       </main>
@@ -309,6 +384,9 @@ const DesktopShell = ({ theme, toggleTheme }) => {
             onClose={closeWindow}
             onMinimize={() => setIsMinimized(true)}
             onToggleMaximize={() => setIsMaximized(prev => !prev)}
+            theme={theme}
+            themeColors={themeColors}
+            onThemeColorsChange={setThemeColors}
           />
         </div>
       )}
