@@ -855,8 +855,8 @@
    .timeline-tick-label {
        position: absolute;
        top: 50%;
-       left: calc(50% + 16px);
-       max-width: 58px;
+       left: calc(50% + 42px);
+       max-width: 72px;
        transform: translateY(-50%);
        color: var(--text-muted);
        font-size: 10px;
@@ -1166,8 +1166,8 @@
        }
 
        .timeline-tick-label {
-           left: calc(50% + 13px);
-           max-width: 46px;
+           left: calc(50% + 34px);
+           max-width: 56px;
            font-size: 9px;
        }
 
@@ -3164,10 +3164,21 @@
        margin-top: 20px;
    }
 
-   .window-content .exp-details-wrapper {
-       opacity: 1;
-       grid-template-rows: 1fr;
-       margin-top: 14px;
+   .window-content .experience-card {
+       padding: 22px 24px;
+   }
+
+   .window-content .exp-role {
+       font-size: 18px;
+   }
+
+   .window-content .exp-company {
+       font-size: 15px;
+   }
+
+   .window-content .exp-meta {
+       font-size: 13px;
+       gap: 7px;
    }
 
    .window-content .toast {
