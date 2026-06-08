@@ -2803,7 +2803,8 @@
 
    .desktop-stage {
        min-height: calc(100vh - 56px);
-       padding: 24px 34px 72px;
+       box-sizing: border-box;
+       padding: 16px 34px 64px;
        display: grid;
        grid-template-columns: minmax(96px, 1fr) minmax(330px, 430px);
        gap: 28px;
@@ -2971,6 +2972,10 @@
        line-height: 1.3;
    }
 
+   .desktop-profile-widget p:not(.desktop-kicker) {
+       display: none;
+   }
+
    .desktop-kicker {
        color: #d8f6ff !important;
        text-transform: uppercase;
@@ -3035,7 +3040,7 @@
    }
 
    .desktop-widgets .gauge-svg {
-       max-width: 132px;
+       max-width: 106px;
    }
 
    .desktop-widgets .gauge-dial-label {
@@ -3070,7 +3075,7 @@
    }
 
    .desktop-widgets .cs-header {
-       padding: 6px 10px 4px;
+       padding: 5px 10px 3px;
    }
 
    .desktop-widgets .cs-tabs {
@@ -3083,11 +3088,11 @@
    }
 
    .desktop-widgets .cs-wheel-wrapper {
-       padding: 2px 0 0;
+       padding: 0;
    }
 
    .desktop-widgets .cs-lightness {
-       padding: 0 10px 4px;
+       padding: 0 10px 3px;
    }
 
    .desktop-widgets .cs-slider-label {
@@ -3096,7 +3101,7 @@
    }
 
    .desktop-widgets .cs-preview {
-       padding: 0 10px 4px;
+       padding: 0 10px 3px;
    }
 
    .desktop-widgets .cs-preview-swatch,
@@ -3106,8 +3111,8 @@
 
    .desktop-widgets .cs-reset {
        width: calc(100% - 20px);
-       margin: 0 10px 4px;
-       padding: 4px 10px;
+       margin: 0 10px 3px;
+       padding: 3px 10px;
        font-size: 10px;
    }
 
@@ -3766,6 +3771,7 @@
            width: auto;
            height: auto;
            transform: none;
+           min-width: 0;
            border-radius: 7px;
        }
 

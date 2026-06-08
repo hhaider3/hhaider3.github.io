@@ -138,6 +138,26 @@ const MIN_WIN_H = 300;
 
 let windowInstanceCounter = 0;
 
+const getNextWindowOffset = () => {
+  const offset = windowInstanceCounter * 30;
+  windowInstanceCounter += 1;
+  return offset;
+};
+
+const getInitialWindowRect = (offset = 0) => {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const w = Math.max(MIN_WIN_W, Math.min(1080, vw - 44));
+  const h = Math.max(MIN_WIN_H, Math.min(720, vh - 124));
+  const baseX = Math.round((vw - w) / 2);
+  const baseY = 58;
+  const boundedOffset = offset % 180;
+  const x = Math.max(0, Math.min(baseX + boundedOffset, vw - w));
+  const y = Math.max(0, Math.min(baseY + boundedOffset, vh - h - 52));
+
+  return { x, y, w, h };
+};
+
 const BrowserWindow = ({
   app,
   isMaximized,
@@ -151,33 +171,24 @@ const BrowserWindow = ({
   themeColors,
   onThemeColorsChange
 }) => {
-  const [isColorPanelOpen, setIsColorPanelOpen] = useState(false);
   const Content = app.component;
+  const [cascadeOffset] = useState(getNextWindowOffset);
+  const [isColorPanelOpen, setIsColorPanelOpen] = useState(false);
 
   /* ---- position / size state ---- */
-  const [winRect, setWinRect] = useState(null);         // null = CSS default centering
+  const [winRect, setWinRect] = useState(() => (
+    typeof window !== 'undefined' && !isMobile ? getInitialWindowRect(cascadeOffset) : null
+  ));
   const interactionRef = useRef(null);                    // drag / resize tracking
   const windowRef = useRef(null);
-
-  /* Cascade offset so multiple windows don't overlap exactly */
-  const cascadeOffset = useRef(windowInstanceCounter++ * 30);
 
   /* Compute initial centered rect on first drag / resize if still null */
   const resolveRect = useCallback(() => {
     if (winRect) return winRect;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const w = Math.min(1080, vw - 44);
-    const h = Math.min(720, vh - 124);
-    const baseX = Math.round((vw - w) / 2);
-    const baseY = 58;
-    const offset = cascadeOffset.current % 180;
-    const x = Math.min(baseX + offset, vw - w);
-    const y = Math.min(baseY + offset, vh - h - 52);
-    const rect = { x, y, w, h };
+    const rect = getInitialWindowRect(cascadeOffset);
     setWinRect(rect);
     return rect;
-  }, [winRect]);
+  }, [cascadeOffset, winRect]);
 
   /* ---- DRAG ---- */
   const onTitlePointerDown = useCallback((e) => {
@@ -768,7 +779,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
               theme={theme}
               colors={themeColors}
               onColorsChange={setThemeColors}
-              wheelSize={92}
+              wheelSize={72}
             />
           </section>
         </aside>
@@ -902,4 +913,3 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 };
 
 export default DesktopShell;
-
