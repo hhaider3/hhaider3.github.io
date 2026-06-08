@@ -2120,6 +2120,12 @@
        gap: 6px 0;
    }
 
+   .gauge-grid-extra {
+       margin-top: 8px;
+       padding-top: 8px;
+       border-top: 1px solid rgba(255, 255, 255, 0.14);
+   }
+
    .gauge-dial {
        display: flex;
        flex-direction: column;
@@ -2222,6 +2228,38 @@
        letter-spacing: 1px;
        color: var(--text-muted);
        margin-top: -6px;
+   }
+
+   .sys-stats-toggle {
+       width: 100%;
+       min-height: 26px;
+       margin-top: 6px;
+       padding: 5px 9px;
+       border: 1px solid rgba(255, 255, 255, 0.16);
+       border-radius: 6px;
+       background: rgba(7, 18, 34, 0.42);
+       color: var(--text-secondary);
+       cursor: pointer;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       gap: 6px;
+       font-size: 10px;
+       font-weight: 800;
+       letter-spacing: 0.8px;
+       line-height: 1;
+       text-transform: uppercase;
+       transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+   }
+
+   .sys-stats-toggle:hover {
+       color: var(--text-primary);
+       border-color: rgba(var(--primary-rgb), 0.55);
+       background: rgba(var(--primary-rgb), 0.12);
+   }
+
+   .sys-stats-toggle svg {
+       flex-shrink: 0;
    }
 
    /* ==========================================================================
@@ -2798,6 +2836,7 @@
    }
 
    .desktop-icon:focus-visible,
+   .sys-stats-toggle:focus-visible,
    .window-color-button:focus-visible,
    .window-controls button:focus-visible,
    .start-orb:focus-visible,
@@ -2857,7 +2896,7 @@
        width: min(100%, 430px);
        display: flex;
        flex-direction: column;
-       gap: 16px;
+       gap: 10px;
        align-self: start;
    }
 
@@ -2876,16 +2915,16 @@
    }
 
    .desktop-profile-widget {
-       padding: 12px;
+       padding: 10px;
        display: grid;
-       grid-template-columns: 56px minmax(0, 1fr);
-       gap: 12px;
+       grid-template-columns: 50px minmax(0, 1fr);
+       gap: 10px;
        align-items: center;
    }
 
    .desktop-profile-orb {
-       width: 52px;
-       height: 52px;
+       width: 48px;
+       height: 48px;
        border-radius: 50%;
        background:
            radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.18) 18%, transparent 19%),
@@ -2907,15 +2946,15 @@
    .desktop-profile-widget h1 {
        color: #fff;
        margin-bottom: 3px;
-       font-size: 23px;
+       font-size: 21px;
        line-height: 1.1;
        text-shadow: 0 1px 5px rgba(0,0,0,0.42);
    }
 
    .desktop-profile-widget p {
        color: rgba(244, 248, 255, 0.82);
-       font-size: 12px;
-       line-height: 1.35;
+       font-size: 11px;
+       line-height: 1.3;
    }
 
    .desktop-kicker {
@@ -2943,23 +2982,23 @@
    .desktop-widgets .clock-card {
        background: rgba(6, 18, 34, 0.48);
        border-color: rgba(255, 255, 255, 0.16);
-       padding: 12px 10px;
+       padding: 9px 8px;
    }
 
    .desktop-widgets .clock-label {
        font-size: 9px;
        letter-spacing: 0.8px;
-       margin-bottom: 6px;
+       margin-bottom: 4px;
    }
 
    .desktop-widgets .clock-time {
-       font-size: 21px;
+       font-size: 19px;
        letter-spacing: 0.2px;
        white-space: nowrap;
    }
 
    .desktop-widgets .clock-zone {
-       font-size: 11px;
+       font-size: 10px;
    }
 
    .desktop-widgets .clock-divider {
@@ -2968,7 +3007,38 @@
    }
 
    .desktop-widgets .clock-diff {
-       font-size: 10px;
+       font-size: 9px;
+   }
+
+   .desktop-widgets .sys-stats-header {
+       margin-bottom: 4px;
+       font-size: 12px;
+       letter-spacing: 1px;
+   }
+
+   .desktop-widgets .gauge-grid {
+       gap: 0;
+   }
+
+   .desktop-widgets .gauge-svg {
+       max-width: 132px;
+   }
+
+   .desktop-widgets .gauge-dial-label {
+       margin-top: -9px;
+       font-size: 9px;
+       letter-spacing: 0.8px;
+   }
+
+   .desktop-widgets .sys-stats-toggle {
+       min-height: 24px;
+       margin-top: 2px;
+       padding: 4px 8px;
+   }
+
+   .desktop-widgets .gauge-grid-extra {
+       margin-top: 6px;
+       padding-top: 6px;
    }
 
    .desktop-widgets .clock-time,
@@ -2986,24 +3056,24 @@
    }
 
    .desktop-widgets .cs-header {
-       padding: 8px 10px 6px;
+       padding: 6px 10px 4px;
    }
 
    .desktop-widgets .cs-tabs {
-       padding: 4px 8px;
+       padding: 3px 8px;
    }
 
    .desktop-widgets .cs-tab {
-       padding: 5px 7px;
-       font-size: 11px;
+       padding: 4px 7px;
+       font-size: 10px;
    }
 
    .desktop-widgets .cs-wheel-wrapper {
-       padding: 4px 0 2px;
+       padding: 2px 0 0;
    }
 
    .desktop-widgets .cs-lightness {
-       padding: 0 10px 6px;
+       padding: 0 10px 4px;
    }
 
    .desktop-widgets .cs-slider-label {
@@ -3012,19 +3082,19 @@
    }
 
    .desktop-widgets .cs-preview {
-       padding: 0 10px 6px;
+       padding: 0 10px 4px;
    }
 
    .desktop-widgets .cs-preview-swatch,
    .desktop-widgets .cs-preview-gradient {
-       height: 24px;
+       height: 22px;
    }
 
    .desktop-widgets .cs-reset {
        width: calc(100% - 20px);
-       margin: 0 10px 6px;
-       padding: 5px 10px;
-       font-size: 11px;
+       margin: 0 10px 4px;
+       padding: 4px 10px;
+       font-size: 10px;
    }
 
    .desktop-window-layer {
@@ -3541,6 +3611,7 @@
        .desktop-stage {
            grid-template-columns: 1fr;
            align-content: start;
+           gap: 16px;
            overflow-y: auto;
        }
 
@@ -3553,7 +3624,17 @@
 
        .desktop-widgets {
            justify-self: start;
-           width: min(100%, 430px);
+           width: 100%;
+           display: grid;
+           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+           gap: 10px;
+       }
+
+       .desktop-profile-widget,
+       .widget-clock,
+       .widget-stats,
+       .widget-colors {
+           min-width: 0;
        }
 
        .portfolio-window {
@@ -3571,43 +3652,57 @@
 
        .desktop-stage {
            min-height: calc(100vh - 58px);
-           padding: 22px 16px 86px;
-           gap: 18px;
+           padding: 18px 12px 62px;
+           gap: 12px;
        }
 
        .desktop-icons {
-           grid-template-columns: repeat(3, minmax(84px, 1fr));
-           grid-auto-rows: 96px;
-           gap: 8px;
+           grid-template-columns: repeat(5, minmax(0, 1fr));
+           grid-auto-rows: 76px;
+           gap: 6px;
        }
 
        .desktop-icon {
            width: 100%;
-           height: 92px;
+           height: 74px;
+           padding: 4px 2px;
+           gap: 4px;
        }
 
        .desktop-icon-tile {
-           width: 46px;
-           height: 46px;
+           width: 36px;
+           height: 36px;
+           border-radius: 8px;
+       }
+
+       .desktop-icon-tile svg {
+           width: 22px;
+           height: 22px;
        }
 
        .desktop-icon-label {
            max-width: 100%;
-           font-size: 11px;
+           min-height: 24px;
+           font-size: 9px;
+           line-height: 1.1;
        }
 
        .desktop-profile-widget {
-           grid-template-columns: 56px minmax(0, 1fr);
-           padding: 14px;
+           grid-template-columns: 40px minmax(0, 1fr);
+           padding: 8px;
        }
 
        .desktop-profile-orb {
-           width: 54px;
-           height: 54px;
+           width: 38px;
+           height: 38px;
        }
 
        .desktop-profile-widget h1 {
-           font-size: 23px;
+           font-size: 17px;
+       }
+
+       .desktop-profile-widget p:not(.desktop-kicker) {
+           display: none;
        }
 
        .portfolio-window,
@@ -3694,21 +3789,58 @@
 
    @media (max-width: 480px) {
        .desktop-icons {
-           grid-template-columns: repeat(2, minmax(0, 1fr));
+           grid-template-columns: repeat(5, minmax(0, 1fr));
+           grid-auto-rows: 70px;
+           gap: 4px;
        }
 
        .desktop-widgets {
            width: 100%;
+           gap: 8px;
+       }
+
+       .desktop-profile-widget {
+           grid-column: 1;
+           grid-row: 1;
+       }
+
+       .widget-stats {
+           grid-column: 2;
+           grid-row: 1;
+       }
+
+       .widget-clock,
+       .widget-colors {
+           grid-column: 1 / -1;
+       }
+
+       .widget-clock {
+           grid-row: 2;
+       }
+
+       .widget-colors {
+           grid-row: 3;
        }
 
        .widget-clock,
        .widget-stats,
        .widget-colors {
-           padding: 12px;
+           padding: 8px;
        }
 
        .desktop-widgets .dual-clock-widget {
            width: 100%;
+           flex-direction: row;
+           align-items: center;
+           gap: 6px;
+       }
+
+       .desktop-widgets .clock-divider {
+           display: none;
+       }
+
+       .desktop-widgets .clock-time {
+           font-size: 17px;
        }
 
        .taskbar-clock {

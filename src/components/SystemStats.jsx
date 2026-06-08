@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, ChevronDown, ChevronUp } from 'lucide-react';
 
 /* ─── Gauge geometry ─── */
 const START = -135;
@@ -191,6 +191,7 @@ const useNetwork = () => {
 
 /* ─── Main Widget ─── */
 const SystemStats = () => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const fps = useFps();
   const mem = useMemory();
   const net = useNetwork();
@@ -199,6 +200,48 @@ const SystemStats = () => {
   const hasNet = !!(navigator.connection || navigator.mozConnection || navigator.webkitConnection);
 
   const coresMax = cores <= 4 ? 8 : cores <= 8 ? 16 : 32;
+  const primaryStats = [
+    {
+      id: 'fps',
+      value: fps,
+      max: 120,
+      label: 'FPS',
+      unit: 'frames/s',
+      tickCount: 7,
+    },
+  ];
+  const secondaryStats = [
+    {
+      id: 'cores',
+      value: cores,
+      max: coresMax,
+      label: 'Cores',
+      unit: 'threads',
+      tickCount: 5,
+    },
+  ];
+
+  if (hasMem) {
+    primaryStats.push({
+      id: 'heap',
+      value: mem.used,
+      max: Math.max(mem.total, 50),
+      label: 'Heap',
+      unit: 'MB',
+      tickCount: 6,
+    });
+  }
+
+  if (hasNet) {
+    secondaryStats.push({
+      id: 'network',
+      value: net.downlink,
+      max: 100,
+      label: 'Network',
+      unit: 'Mb/s',
+      tickCount: 6,
+    });
+  }
 
   return (
     <div className="sys-stats-widget">
@@ -208,30 +251,43 @@ const SystemStats = () => {
       </div>
 
       <div className="gauge-grid">
-        <GaugeDial
-          value={fps} max={120} label="FPS" unit="frames/s"
-          tickCount={7}
-        />
-
-        <GaugeDial
-          value={cores} max={coresMax} label="Cores" unit="threads"
-          tickCount={5}
-        />
-
-        {hasMem && (
+        {primaryStats.map(stat => (
           <GaugeDial
-            value={mem.used} max={Math.max(mem.total, 50)} label="Heap"
-            unit="MB" tickCount={6}
+            key={stat.id}
+            value={stat.value}
+            max={stat.max}
+            label={stat.label}
+            unit={stat.unit}
+            tickCount={stat.tickCount}
           />
-        )}
-
-        {hasNet && (
-          <GaugeDial
-            value={net.downlink} max={100} label="Network"
-            unit="Mb/s" tickCount={6}
-          />
-        )}
+        ))}
       </div>
+
+      <button
+        type="button"
+        className="sys-stats-toggle"
+        aria-controls="sys-stats-extra"
+        aria-expanded={isExpanded}
+        onClick={() => setIsExpanded(prev => !prev)}
+      >
+        <span>{isExpanded ? 'Show less' : 'See more'}</span>
+        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+
+      {isExpanded && (
+        <div id="sys-stats-extra" className="gauge-grid gauge-grid-extra">
+          {secondaryStats.map(stat => (
+            <GaugeDial
+              key={stat.id}
+              value={stat.value}
+              max={stat.max}
+              label={stat.label}
+              unit={stat.unit}
+              tickCount={stat.tickCount}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

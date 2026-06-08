@@ -375,7 +375,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
               theme={theme}
               colors={themeColors}
               onColorsChange={setThemeColors}
-              wheelSize={108}
+              wheelSize={92}
             />
           </section>
         </aside>
