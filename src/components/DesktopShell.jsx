@@ -61,6 +61,23 @@ const getInitialThemeColors = () => {
   }
 };
 
+const MOBILE_QUERY = '(max-width: 1020px)';
+
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(MOBILE_QUERY).matches : false
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (e) => setIsMobile(e.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  return isMobile;
+};
+
 const TaskbarClock = () => {
   const [now, setNow] = useState(new Date());
 
@@ -124,6 +141,7 @@ let windowInstanceCounter = 0;
 const BrowserWindow = ({
   app,
   isMaximized,
+  isMobile,
   zIndex,
   onFocus,
   onClose,
@@ -282,7 +300,8 @@ const BrowserWindow = ({
   }, [onToggleMaximize]);
 
   /* ---- style ---- */
-  const windowStyle = {
+  const canInteract = !isMobile;
+  const windowStyle = canInteract ? {
     zIndex: zIndex || 1,
     ...(!isMaximized && winRect ? {
       top: `${winRect.y}px`,
@@ -291,7 +310,7 @@ const BrowserWindow = ({
       height: `${winRect.h}px`,
       transform: 'none',
     } : {}),
-  };
+  } : undefined;
 
   return (
     <section
@@ -299,12 +318,12 @@ const BrowserWindow = ({
       className={`portfolio-window ${isMaximized ? 'maximized' : ''}`}
       aria-label={`${app.title} window`}
       style={windowStyle}
-      onPointerDown={onFocus}
+      onPointerDown={canInteract ? onFocus : undefined}
     >
       <div className="window-frame-glow" aria-hidden="true"></div>
 
-      {/* Resize handles (hidden when maximized) */}
-      {!isMaximized && RESIZE_EDGES.map(edge => (
+      {/* Resize handles (desktop only, hidden when maximized) */}
+      {canInteract && !isMaximized && RESIZE_EDGES.map(edge => (
         <div
           key={edge}
           className={`win-resize-handle win-resize-${edge}`}
@@ -318,12 +337,12 @@ const BrowserWindow = ({
 
       <div
         className="window-titlebar"
-        onPointerDown={onTitlePointerDown}
-        onPointerMove={onTitlePointerMove}
-        onPointerUp={onTitlePointerUp}
-        onPointerCancel={onTitlePointerUp}
-        onDoubleClick={onTitleDoubleClick}
-        style={{ cursor: isMaximized ? 'default' : 'grab', touchAction: 'none' }}
+        onPointerDown={canInteract ? onTitlePointerDown : undefined}
+        onPointerMove={canInteract ? onTitlePointerMove : undefined}
+        onPointerUp={canInteract ? onTitlePointerUp : undefined}
+        onPointerCancel={canInteract ? onTitlePointerUp : undefined}
+        onDoubleClick={canInteract ? onTitleDoubleClick : undefined}
+        style={canInteract ? { cursor: isMaximized ? 'default' : 'grab', touchAction: 'none' } : undefined}
       >
         <div className="window-title">
           <span className={`window-favicon ${app.accent}`}>{app.icon}</span>
@@ -404,6 +423,7 @@ const doesRectIntersect = (a, b) => (
 );
 
 const DesktopShell = ({ theme, toggleTheme }) => {
+  const isMobile = useIsMobile();
   const desktopRef = useRef(null);
   const activeSelectionPointer = useRef(null);
   const suppressNextDesktopClick = useRef(false);
@@ -412,7 +432,12 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const [isStartOpen, setIsStartOpen] = useState(false);
   const [themeColors, setThemeColors] = useState(getInitialThemeColors);
 
-  /* ---- Multi-window state ---- */
+  /* ---- Mobile: single-window state (old behavior) ---- */
+  const [mobileAppId, setMobileAppId] = useState(null);
+  const [mobileMaximized, setMobileMaximized] = useState(false);
+  const [mobileMinimized, setMobileMinimized] = useState(false);
+
+  /* ---- Desktop: multi-window state ---- */
   const [openWindows, setOpenWindows] = useState([]);
   // openWindows entries: { id, isMaximized, isMinimized, zIndex }
   const zCounterRef = useRef(1);
@@ -608,6 +633,12 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       return;
     }
 
+    if (isMobile) {
+      setMobileAppId(item.id);
+      setMobileMinimized(false);
+      return;
+    }
+
     setOpenWindows(prev => {
       const existing = prev.find(w => w.id === item.id);
       if (existing) {
@@ -743,28 +774,53 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         </aside>
       </main>
 
-      {/* ---- Multiple open windows ---- */}
-      <div className="desktop-window-layer">
-        {openWindows.map(win => {
-          const app = internalApps.find(a => a.id === win.id);
-          if (!app || win.isMinimized) return null;
+      {/* ---- Windows ---- */}
+      {isMobile ? (
+        /* Mobile: single-window, no drag/resize */
+        (() => {
+          const mobileApp = internalApps.find(a => a.id === mobileAppId);
+          if (!mobileApp || mobileMinimized) return null;
           return (
-            <BrowserWindow
-              key={win.id}
-              app={app}
-              isMaximized={win.isMaximized}
-              zIndex={win.zIndex}
-              onFocus={() => focusWindow(win.id)}
-              onClose={() => closeWindow(win.id)}
-              onMinimize={() => minimizeWindow(win.id)}
-              onToggleMaximize={() => toggleMaximizeWindow(win.id)}
-              theme={theme}
-              themeColors={themeColors}
-              onThemeColorsChange={setThemeColors}
-            />
+            <div className="desktop-window-layer">
+              <BrowserWindow
+                app={mobileApp}
+                isMaximized={mobileMaximized}
+                isMobile
+                onClose={() => { setMobileAppId(null); setMobileMinimized(false); setMobileMaximized(false); }}
+                onMinimize={() => setMobileMinimized(true)}
+                onToggleMaximize={() => setMobileMaximized(prev => !prev)}
+                theme={theme}
+                themeColors={themeColors}
+                onThemeColorsChange={setThemeColors}
+              />
+            </div>
           );
-        })}
-      </div>
+        })()
+      ) : (
+        /* Desktop: multi-window with drag/resize */
+        <div className="desktop-window-layer">
+          {openWindows.map(win => {
+            const app = internalApps.find(a => a.id === win.id);
+            if (!app || win.isMinimized) return null;
+            return (
+              <BrowserWindow
+                key={win.id}
+                app={app}
+                isMaximized={win.isMaximized}
+                isMobile={false}
+                zIndex={win.zIndex}
+                onFocus={() => focusWindow(win.id)}
+                onClose={() => closeWindow(win.id)}
+                onMinimize={() => minimizeWindow(win.id)}
+                onToggleMaximize={() => toggleMaximizeWindow(win.id)}
+                theme={theme}
+                themeColors={themeColors}
+                onThemeColorsChange={setThemeColors}
+              />
+            );
+          })}
+        </div>
+      )}
 
       <nav className="win7-taskbar" aria-label="Desktop taskbar">
         <div className="taskbar-left">
@@ -797,23 +853,42 @@ const DesktopShell = ({ theme, toggleTheme }) => {
             </div>
           )}
 
-          {openWindows.map(win => {
-            const app = internalApps.find(a => a.id === win.id);
-            if (!app) return null;
-            const topZ = Math.max(...openWindows.map(w => w.zIndex));
-            const isFocused = !win.isMinimized && win.zIndex === topZ;
-            return (
-              <button
-                type="button"
-                key={win.id}
-                className={`taskbar-app ${win.isMinimized ? 'minimized' : isFocused ? 'active' : ''}`}
-                onClick={() => toggleMinimizeFromTaskbar(win.id)}
-              >
-                <span className={`taskbar-app-icon ${app.accent}`}>{app.icon}</span>
-                <span>{app.title}</span>
-              </button>
-            );
-          })}
+          {isMobile ? (
+            /* Mobile: single taskbar button */
+            (() => {
+              const mobileApp = internalApps.find(a => a.id === mobileAppId);
+              if (!mobileApp) return null;
+              return (
+                <button
+                  type="button"
+                  className={`taskbar-app ${mobileMinimized ? 'minimized' : 'active'}`}
+                  onClick={() => setMobileMinimized(prev => !prev)}
+                >
+                  <span className={`taskbar-app-icon ${mobileApp.accent}`}>{mobileApp.icon}</span>
+                  <span>{mobileApp.title}</span>
+                </button>
+              );
+            })()
+          ) : (
+            /* Desktop: taskbar button per open window */
+            openWindows.map(win => {
+              const app = internalApps.find(a => a.id === win.id);
+              if (!app) return null;
+              const topZ = Math.max(...openWindows.map(w => w.zIndex));
+              const isFocused = !win.isMinimized && win.zIndex === topZ;
+              return (
+                <button
+                  type="button"
+                  key={win.id}
+                  className={`taskbar-app ${win.isMinimized ? 'minimized' : isFocused ? 'active' : ''}`}
+                  onClick={() => toggleMinimizeFromTaskbar(win.id)}
+                >
+                  <span className={`taskbar-app-icon ${app.accent}`}>{app.icon}</span>
+                  <span>{app.title}</span>
+                </button>
+              );
+            })
+          )}
 
           <button type="button" className="taskbar-theme" onClick={toggleTheme}>
             {theme === 'dark' ? 'Dark' : 'Light'}
