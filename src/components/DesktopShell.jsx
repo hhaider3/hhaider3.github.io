@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -94,6 +94,7 @@ const DesktopIcon = ({ item, isSelected, onSelect, onOpen }) => {
   return (
     <button
       type="button"
+      data-desktop-id={item.id}
       className={`desktop-icon ${isSelected ? 'selected' : ''}`}
       onClick={handleClick}
       onDoubleClick={() => onOpen(item)}
@@ -194,8 +195,28 @@ const BrowserWindow = ({
   );
 };
 
+const selectionThreshold = 4;
+
+const getSelectionRect = ({ startX, startY, currentX, currentY }) => ({
+  left: Math.min(startX, currentX),
+  top: Math.min(startY, currentY),
+  width: Math.abs(currentX - startX),
+  height: Math.abs(currentY - startY),
+});
+
+const doesRectIntersect = (a, b) => (
+  a.left < b.right
+  && a.left + a.width > b.left
+  && a.top < b.bottom
+  && a.top + a.height > b.top
+);
+
 const DesktopShell = ({ theme, toggleTheme }) => {
-  const [selectedId, setSelectedId] = useState('about');
+  const desktopRef = useRef(null);
+  const activeSelectionPointer = useRef(null);
+  const suppressNextDesktopClick = useRef(false);
+  const [selectedIds, setSelectedIds] = useState(['about']);
+  const [selectionBox, setSelectionBox] = useState(null);
   const [activeAppId, setActiveAppId] = useState(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -288,9 +309,90 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   ], [internalApps, externalApps]);
 
   const activeApp = internalApps.find(app => app.id === activeAppId);
+  const activeSelectionRect = selectionBox ? getSelectionRect(selectionBox) : null;
+  const isSelectionVisible = activeSelectionRect
+    && (activeSelectionRect.width > selectionThreshold || activeSelectionRect.height > selectionThreshold);
+
+  const shouldStartDesktopSelection = (target) => {
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    const blockedElement = target.closest(
+      '.desktop-icon, .desktop-widgets, .portfolio-window, .win7-taskbar, .start-menu, button, a, input, textarea, select'
+    );
+
+    return !blockedElement && !!target.closest('.win7-desktop, .desktop-stage, .desktop-icons');
+  };
+
+  const getSelectedIconIdsInRect = (selectionRect) => {
+    if (!desktopRef.current) {
+      return [];
+    }
+
+    return Array.from(desktopRef.current.querySelectorAll('.desktop-icon[data-desktop-id]'))
+      .filter(icon => {
+        const iconRect = icon.getBoundingClientRect();
+        return doesRectIntersect(selectionRect, iconRect);
+      })
+      .map(icon => icon.dataset.desktopId);
+  };
+
+  const handleDesktopPointerDown = (event) => {
+    if (event.button !== 0 || event.pointerType === 'touch' || !shouldStartDesktopSelection(event.target)) {
+      return;
+    }
+
+    event.preventDefault();
+    activeSelectionPointer.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsStartOpen(false);
+    setSelectedIds([]);
+    setSelectionBox({
+      startX: event.clientX,
+      startY: event.clientY,
+      currentX: event.clientX,
+      currentY: event.clientY,
+    });
+  };
+
+  const handleDesktopPointerMove = (event) => {
+    if (!selectionBox || activeSelectionPointer.current !== event.pointerId) {
+      return;
+    }
+
+    const nextSelectionBox = {
+      ...selectionBox,
+      currentX: event.clientX,
+      currentY: event.clientY,
+    };
+    const nextRect = getSelectionRect(nextSelectionBox);
+
+    setSelectionBox(nextSelectionBox);
+
+    if (nextRect.width > selectionThreshold || nextRect.height > selectionThreshold) {
+      setSelectedIds(getSelectedIconIdsInRect(nextRect));
+    }
+  };
+
+  const finishDesktopSelection = (event) => {
+    if (!selectionBox || activeSelectionPointer.current !== event.pointerId) {
+      return;
+    }
+
+    const finalRect = getSelectionRect(selectionBox);
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    suppressNextDesktopClick.current = finalRect.width > selectionThreshold || finalRect.height > selectionThreshold;
+    activeSelectionPointer.current = null;
+    setSelectionBox(null);
+  };
 
   const openItem = (item) => {
-    setSelectedId(item.id);
+    setSelectedIds([item.id]);
     setIsStartOpen(false);
 
     if (item.kind === 'external') {
@@ -326,16 +428,39 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 
   return (
     <div
+      ref={desktopRef}
       className="win7-desktop"
       style={{ '--desktop-wallpaper-url': `url(${wallpaper})` }}
+      onPointerDown={handleDesktopPointerDown}
+      onPointerMove={handleDesktopPointerMove}
+      onPointerUp={finishDesktopSelection}
+      onPointerCancel={finishDesktopSelection}
       onClick={(event) => {
+        if (suppressNextDesktopClick.current) {
+          suppressNextDesktopClick.current = false;
+          return;
+        }
+
         if (event.target.classList.contains('win7-desktop')) {
-          setSelectedId(null);
+          setSelectedIds([]);
           setIsStartOpen(false);
         }
       }}
     >
       <div className="desktop-sheen" aria-hidden="true"></div>
+
+      {isSelectionVisible && (
+        <div
+          className="desktop-selection-marquee"
+          style={{
+            left: `${activeSelectionRect.left}px`,
+            top: `${activeSelectionRect.top}px`,
+            width: `${activeSelectionRect.width}px`,
+            height: `${activeSelectionRect.height}px`,
+          }}
+          aria-hidden="true"
+        />
+      )}
 
       <main className="desktop-stage">
         <div className="desktop-icons" aria-label="Portfolio desktop shortcuts">
@@ -343,8 +468,8 @@ const DesktopShell = ({ theme, toggleTheme }) => {
             <DesktopIcon
               key={item.id}
               item={item}
-              isSelected={selectedId === item.id}
-              onSelect={setSelectedId}
+              isSelected={selectedIds.includes(item.id)}
+              onSelect={(id) => setSelectedIds([id])}
               onOpen={openItem}
             />
           ))}
