@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Palette, RotateCcw } from 'lucide-react';
 
 // Convert hex to RGB
@@ -92,7 +92,7 @@ const ColorWheel = ({ size, selectedHue, selectedSat, onSelect }) => {
       }
     }
     ctx.putImageData(imageData, 0, 0);
-  }, [size, dpr, canvasSize]);
+  }, [size, dpr, canvasSize, centerX, centerY, radius]);
 
   // Draw selection indicator
   const indicatorAngle = (selectedHue * Math.PI) / 180;
@@ -164,24 +164,17 @@ const ColorWheel = ({ size, selectedHue, selectedSat, onSelect }) => {
   );
 };
 
-const ColorSwitcher = ({ theme }) => {
+const ColorSwitcher = ({ theme, wheelSize = 160 }) => {
   const [editingColor, setEditingColor] = useState('primary');
+  const [themeColors, setThemeColors] = useState(DEFAULTS);
 
-  const [primaryColor, setPrimaryColor] = useState(
-    theme === 'dark' ? DEFAULTS.dark.primary : DEFAULTS.light.primary
-  );
-  const [secondaryColor, setSecondaryColor] = useState(
-    theme === 'dark' ? DEFAULTS.dark.secondary : DEFAULTS.light.secondary
-  );
+  const currentColors = themeColors[theme] || DEFAULTS.dark;
+  const primaryColor = currentColors.primary;
+  const secondaryColor = currentColors.secondary;
 
   const activeColor = editingColor === 'primary' ? primaryColor : secondaryColor;
   const activeHsl = hexToHsl(activeColor);
-  const [lightness, setLightness] = useState(activeHsl.l);
-
-  useEffect(() => {
-    const hsl = hexToHsl(editingColor === 'primary' ? primaryColor : secondaryColor);
-    setLightness(hsl.l);
-  }, [editingColor, primaryColor, secondaryColor]);
+  const lightness = activeHsl.l;
 
   const applyColor = useCallback((hex, target) => {
     const rgb = hexToRgb(hex);
@@ -196,47 +189,40 @@ const ColorSwitcher = ({ theme }) => {
     }
   }, []);
 
+  const updateColor = useCallback((target, hex) => {
+    setThemeColors(prev => ({
+      ...prev,
+      [theme]: {
+        ...(prev[theme] || DEFAULTS[theme] || DEFAULTS.dark),
+        [target]: hex
+      }
+    }));
+  }, [theme]);
+
   const handleWheelSelect = useCallback((hue, sat) => {
     const hex = hslToHex(hue, sat, lightness);
-    if (editingColor === 'primary') {
-      setPrimaryColor(hex);
-      applyColor(hex, 'primary');
-    } else {
-      setSecondaryColor(hex);
-      applyColor(hex, 'secondary');
-    }
-  }, [editingColor, lightness, applyColor]);
+    updateColor(editingColor, hex);
+  }, [editingColor, lightness, updateColor]);
 
   const handleLightnessChange = (e) => {
     const newL = parseInt(e.target.value);
-    setLightness(newL);
-    const hsl = hexToHsl(editingColor === 'primary' ? primaryColor : secondaryColor);
+    const hsl = hexToHsl(activeColor);
     const hex = hslToHex(hsl.h, hsl.s, newL);
-    if (editingColor === 'primary') {
-      setPrimaryColor(hex);
-      applyColor(hex, 'primary');
-    } else {
-      setSecondaryColor(hex);
-      applyColor(hex, 'secondary');
-    }
+    updateColor(editingColor, hex);
   };
 
   const handleReset = () => {
     const defaults = theme === 'dark' ? DEFAULTS.dark : DEFAULTS.light;
-    setPrimaryColor(defaults.primary);
-    setSecondaryColor(defaults.secondary);
-    applyColor(defaults.primary, 'primary');
-    applyColor(defaults.secondary, 'secondary');
-    setLightness(hexToHsl(editingColor === 'primary' ? defaults.primary : defaults.secondary).l);
+    setThemeColors(prev => ({
+      ...prev,
+      [theme]: defaults
+    }));
   };
 
   useEffect(() => {
-    const defaults = theme === 'dark' ? DEFAULTS.dark : DEFAULTS.light;
-    setPrimaryColor(defaults.primary);
-    setSecondaryColor(defaults.secondary);
-    applyColor(defaults.primary, 'primary');
-    applyColor(defaults.secondary, 'secondary');
-  }, [theme, applyColor]);
+    applyColor(primaryColor, 'primary');
+    applyColor(secondaryColor, 'secondary');
+  }, [primaryColor, secondaryColor, applyColor]);
 
   return (
     <div className="color-switcher-inline">
@@ -265,7 +251,7 @@ const ColorSwitcher = ({ theme }) => {
 
       <div className="cs-wheel-wrapper">
         <ColorWheel
-          size={160}
+          size={wheelSize}
           selectedHue={activeHsl.h}
           selectedSat={activeHsl.s}
           onSelect={handleWheelSelect}

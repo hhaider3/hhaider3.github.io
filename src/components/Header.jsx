@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Sun, Moon, Download, Menu, X } from 'lucide-react';
 
 const Header = ({ theme, toggleTheme }) => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { BookOpen, ArrowUpRight, Lock } from 'lucide-react';
 
 const Publications = () => {

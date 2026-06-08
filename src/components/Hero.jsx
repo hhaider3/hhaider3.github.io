@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowRight, Mail, Phone, ChevronDown } from 'lucide-react';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import DualClock from './DualClock';

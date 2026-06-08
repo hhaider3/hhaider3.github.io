@@ -1,4 +1,3 @@
-import React from 'react';
 import { Code, Layout, Sparkles, Server, Shield } from 'lucide-react';
 
 const Skills = () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Search, Bot, Gamepad2, MessageSquare, Cpu, ExternalLink, Play } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 

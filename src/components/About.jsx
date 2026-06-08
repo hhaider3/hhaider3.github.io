@@ -1,4 +1,3 @@
-import React from 'react';
 import { User, ShieldCheck, Cpu, Gauge, Layers } from 'lucide-react';
 
 const About = () => {
