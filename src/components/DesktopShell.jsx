@@ -27,6 +27,7 @@ import Publications from './Publications';
 import Contact from './Contact';
 import DualClock from './DualClock';
 import ColorSwitcher from './ColorSwitcher';
+import SystemStats from './SystemStats';
 import { WALLPAPER_COLOR_DEFAULTS } from '../constants/colors';
 import wallpaper from '../assets/win7-portfolio-wallpaper.png';
 
@@ -363,6 +364,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 
           <section className="glass-widget widget-clock">
             <DualClock />
+          </section>
+
+          <section className="glass-widget widget-stats">
+            <SystemStats />
           </section>
 
           <section className="glass-widget widget-colors">

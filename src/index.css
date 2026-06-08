@@ -52,6 +52,15 @@
        --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
        --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
        --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+       /* System Stats Widget */
+       --stat-green:  #22c55e;
+       --stat-amber:  #f59e0b;
+       --stat-red:    #ef4444;
+       --stat-blue:   #3b82f6;
+       --stat-violet: #8b5cf6;
+       --stat-teal:   #14b8a6;
+       --stat-cyan:   #06b6d4;
    }
    
    /* Light Theme Overrides */
@@ -2078,6 +2087,141 @@
        .exp-meta { flex-direction: column; gap: 8px; }
        .speed-badge { left: -16px; }
        .code-badge { right: -16px; }
+   }
+
+   /* ==========================================================================
+      SYSTEM STATS WIDGET (Gauge Dials)
+      ==========================================================================*/
+
+   .sys-stats-widget {
+       width: 100%;
+   }
+
+   .sys-stats-header {
+       display: flex;
+       align-items: center;
+       gap: 8px;
+       font-size: 14px;
+       font-weight: 800;
+       text-transform: uppercase;
+       letter-spacing: 1.4px;
+       color: var(--text-primary);
+       margin-bottom: 10px;
+   }
+
+   .sys-stats-icon {
+       color: var(--primary);
+   }
+
+   /* ── Gauge grid ── */
+   .gauge-grid {
+       display: grid;
+       grid-template-columns: 1fr 1fr;
+       gap: 6px 0;
+   }
+
+   .gauge-dial {
+       display: flex;
+       flex-direction: column;
+       align-items: center;
+   }
+
+   .gauge-svg {
+       width: 100%;
+       max-width: 180px;
+       overflow: visible;
+   }
+
+   /* ── Track & value arc ── */
+   .gauge-track {
+       stroke: rgba(255, 255, 255, 0.06);
+   }
+
+   [data-theme="light"] .gauge-track {
+       stroke: rgba(0, 0, 0, 0.08);
+   }
+
+   .gauge-value-arc {
+       stroke: var(--primary);
+       filter: drop-shadow(0 0 6px rgba(var(--primary-rgb), 0.5));
+       transition: stroke-dashoffset 0.6s cubic-bezier(.4, 0, .2, 1);
+   }
+
+   /* ── Ticks ── */
+   .gauge-tick-major {
+       stroke: rgba(255, 255, 255, 0.4);
+       stroke-width: 1.5;
+   }
+
+   .gauge-tick-minor {
+       stroke: rgba(255, 255, 255, 0.1);
+       stroke-width: 0.8;
+   }
+
+   [data-theme="light"] .gauge-tick-major {
+       stroke: rgba(0, 0, 0, 0.3);
+   }
+
+   [data-theme="light"] .gauge-tick-minor {
+       stroke: rgba(0, 0, 0, 0.1);
+   }
+
+   .gauge-tick-num {
+       fill: rgba(255, 255, 255, 0.32);
+       font-size: 9px;
+       font-weight: 600;
+       font-family: 'Outfit', var(--font-heading);
+   }
+
+   [data-theme="light"] .gauge-tick-num {
+       fill: rgba(0, 0, 0, 0.32);
+   }
+
+   /* ── Needle ── */
+   .gauge-needle {
+       transition: transform 0.6s cubic-bezier(.4, 0, .2, 1);
+   }
+
+   .gauge-needle-shape {
+       fill: var(--primary);
+       opacity: 0.9;
+       filter: drop-shadow(0 0 5px rgba(var(--primary-rgb), 0.55));
+   }
+
+   .gauge-pivot-outer {
+       fill: var(--primary);
+       opacity: 0.8;
+   }
+
+   .gauge-pivot-inner {
+       fill: var(--bg-primary);
+   }
+
+   /* ── Digital readout ── */
+   .gauge-readout {
+       fill: var(--secondary);
+       font-size: 18px;
+       font-weight: 800;
+       text-anchor: middle;
+       font-family: 'Outfit', var(--font-heading);
+       font-variant-numeric: tabular-nums;
+   }
+
+   .gauge-unit {
+       fill: var(--text-muted);
+       font-size: 8px;
+       font-weight: 600;
+       text-anchor: middle;
+       letter-spacing: 0.8px;
+   }
+
+   .gauge-dial-label {
+       font-size: 10px;
+       font-weight: 700;
+       text-transform: uppercase;
+       letter-spacing: 1px;
+       color: var(--text-muted);
+       margin-top: -6px;
    }
 
    /* ==========================================================================
