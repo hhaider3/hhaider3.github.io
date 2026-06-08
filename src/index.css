@@ -3119,26 +3119,67 @@
    }
 
    .portfolio-window {
-       position: fixed;
-       top: 58px;
-       left: 50%;
-       width: min(1080px, calc(100vw - 44px));
-       height: min(720px, calc(100vh - 124px));
-       min-height: 430px;
-       transform: translateX(-50%);
-       border: 1px solid rgba(255, 255, 255, 0.42);
-       border-radius: 8px;
-       background:
-           linear-gradient(180deg, rgba(210, 234, 255, 0.34), rgba(47, 116, 173, 0.18) 38px, rgba(245, 249, 255, 0.98) 38px),
-           rgba(235, 243, 250, 0.98);
-       box-shadow:
-           inset 0 1px 0 rgba(255, 255, 255, 0.8),
-           0 30px 80px rgba(0, 0, 0, 0.42);
-       display: flex;
-       flex-direction: column;
-       pointer-events: auto;
-       overflow: hidden;
-   }
+        position: fixed;
+        top: 58px;
+        left: 50%;
+        width: min(1080px, calc(100vw - 44px));
+        height: min(720px, calc(100vh - 124px));
+        min-height: 300px;
+        min-width: 420px;
+        transform: translateX(-50%);
+        border: 1px solid rgba(255, 255, 255, 0.42);
+        border-radius: 8px;
+        background:
+            linear-gradient(180deg, rgba(210, 234, 255, 0.34), rgba(47, 116, 173, 0.18) 38px, rgba(245, 249, 255, 0.98) 38px),
+            rgba(235, 243, 250, 0.98);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.8),
+            0 30px 80px rgba(0, 0, 0, 0.42);
+        display: flex;
+        flex-direction: column;
+        pointer-events: auto;
+        overflow: hidden;
+        user-select: none;
+    }
+
+    /* ---- Resize handles ---- */
+    .win-resize-handle {
+        position: absolute;
+        z-index: 10;
+        touch-action: none;
+    }
+    .win-resize-n {
+        top: -3px; left: 8px; right: 8px; height: 6px;
+        cursor: n-resize;
+    }
+    .win-resize-s {
+        bottom: -3px; left: 8px; right: 8px; height: 6px;
+        cursor: s-resize;
+    }
+    .win-resize-e {
+        top: 8px; bottom: 8px; right: -3px; width: 6px;
+        cursor: e-resize;
+    }
+    .win-resize-w {
+        top: 8px; bottom: 8px; left: -3px; width: 6px;
+        cursor: w-resize;
+    }
+    .win-resize-ne {
+        top: -3px; right: -3px; width: 12px; height: 12px;
+        cursor: ne-resize;
+    }
+    .win-resize-nw {
+        top: -3px; left: -3px; width: 12px; height: 12px;
+        cursor: nw-resize;
+    }
+    .win-resize-se {
+        bottom: -3px; right: -3px; width: 12px; height: 12px;
+        cursor: se-resize;
+    }
+    .win-resize-sw {
+        bottom: -3px; left: -3px; width: 12px; height: 12px;
+        cursor: sw-resize;
+    }
 
    .portfolio-window.maximized {
        top: 10px;

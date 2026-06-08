@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -115,9 +115,17 @@ const DesktopIcon = ({ item, isSelected, onSelect, onOpen }) => {
   );
 };
 
+const RESIZE_EDGES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+const MIN_WIN_W = 420;
+const MIN_WIN_H = 300;
+
+let windowInstanceCounter = 0;
+
 const BrowserWindow = ({
   app,
   isMaximized,
+  zIndex,
+  onFocus,
   onClose,
   onMinimize,
   onToggleMaximize,
@@ -128,11 +136,195 @@ const BrowserWindow = ({
   const [isColorPanelOpen, setIsColorPanelOpen] = useState(false);
   const Content = app.component;
 
+  /* ---- position / size state ---- */
+  const [winRect, setWinRect] = useState(null);         // null = CSS default centering
+  const interactionRef = useRef(null);                    // drag / resize tracking
+  const windowRef = useRef(null);
+
+  /* Cascade offset so multiple windows don't overlap exactly */
+  const cascadeOffset = useRef(windowInstanceCounter++ * 30);
+
+  /* Compute initial centered rect on first drag / resize if still null */
+  const resolveRect = useCallback(() => {
+    if (winRect) return winRect;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const w = Math.min(1080, vw - 44);
+    const h = Math.min(720, vh - 124);
+    const baseX = Math.round((vw - w) / 2);
+    const baseY = 58;
+    const offset = cascadeOffset.current % 180;
+    const x = Math.min(baseX + offset, vw - w);
+    const y = Math.min(baseY + offset, vh - h - 52);
+    const rect = { x, y, w, h };
+    setWinRect(rect);
+    return rect;
+  }, [winRect]);
+
+  /* ---- DRAG ---- */
+  const onTitlePointerDown = useCallback((e) => {
+    if (e.button !== 0 || isMaximized) return;
+    // don't start drag when clicking buttons inside titlebar
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    const rect = resolveRect();
+    interactionRef.current = {
+      kind: 'drag',
+      pointerId: e.pointerId,
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startX: rect.x,
+      startY: rect.y,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [isMaximized, resolveRect]);
+
+  const onTitlePointerMove = useCallback((e) => {
+    const info = interactionRef.current;
+    if (!info || info.kind !== 'drag' || info.pointerId !== e.pointerId) return;
+    const dx = e.clientX - info.startMouseX;
+    const dy = e.clientY - info.startMouseY;
+    setWinRect(prev => {
+      const r = prev || resolveRect();
+      const maxX = window.innerWidth - r.w;
+      const maxY = window.innerHeight - 52 - 40; // leave room for taskbar
+      return {
+        ...r,
+        x: Math.max(0, Math.min(maxX, info.startX + dx)),
+        y: Math.max(0, Math.min(maxY, info.startY + dy)),
+      };
+    });
+  }, [resolveRect]);
+
+  const onTitlePointerUp = useCallback((e) => {
+    const info = interactionRef.current;
+    if (!info || info.kind !== 'drag' || info.pointerId !== e.pointerId) return;
+    interactionRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }, []);
+
+  /* ---- RESIZE ---- */
+  const onResizePointerDown = useCallback((e) => {
+    if (e.button !== 0 || isMaximized) return;
+    const edge = e.currentTarget.dataset.edge;
+    if (!edge) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = resolveRect();
+    interactionRef.current = {
+      kind: 'resize',
+      edge,
+      pointerId: e.pointerId,
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startX: rect.x,
+      startY: rect.y,
+      startW: rect.w,
+      startH: rect.h,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [isMaximized, resolveRect]);
+
+  const onResizePointerMove = useCallback((e) => {
+    const info = interactionRef.current;
+    if (!info || info.kind !== 'resize' || info.pointerId !== e.pointerId) return;
+    const dx = e.clientX - info.startMouseX;
+    const dy = e.clientY - info.startMouseY;
+    const edge = info.edge;
+
+    setWinRect(() => {
+      let { startX: x, startY: y, startW: w, startH: h } = info;
+
+      if (edge.includes('e')) {
+        w = Math.max(MIN_WIN_W, info.startW + dx);
+      }
+      if (edge.includes('w')) {
+        const newW = Math.max(MIN_WIN_W, info.startW - dx);
+        x = info.startX + (info.startW - newW);
+        w = newW;
+      }
+      if (edge.includes('s')) {
+        h = Math.max(MIN_WIN_H, info.startH + dy);
+      }
+      if (edge.includes('n')) {
+        const newH = Math.max(MIN_WIN_H, info.startH - dy);
+        y = info.startY + (info.startH - newH);
+        h = newH;
+      }
+
+      // clamp within viewport
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      x = Math.max(0, Math.min(x, vw - MIN_WIN_W));
+      y = Math.max(0, y);
+      w = Math.min(w, vw - x);
+      h = Math.min(h, vh - 52 - y);
+
+      return { x, y, w, h };
+    });
+  }, []);
+
+  const onResizePointerUp = useCallback((e) => {
+    const info = interactionRef.current;
+    if (!info || info.kind !== 'resize' || info.pointerId !== e.pointerId) return;
+    interactionRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }, []);
+
+  /* ---- double-click title bar to maximize toggle ---- */
+  const onTitleDoubleClick = useCallback((e) => {
+    if (e.target.closest('button')) return;
+    onToggleMaximize();
+  }, [onToggleMaximize]);
+
+  /* ---- style ---- */
+  const windowStyle = {
+    zIndex: zIndex || 1,
+    ...(!isMaximized && winRect ? {
+      top: `${winRect.y}px`,
+      left: `${winRect.x}px`,
+      width: `${winRect.w}px`,
+      height: `${winRect.h}px`,
+      transform: 'none',
+    } : {}),
+  };
+
   return (
-    <section className={`portfolio-window ${isMaximized ? 'maximized' : ''}`} aria-label={`${app.title} window`}>
+    <section
+      ref={windowRef}
+      className={`portfolio-window ${isMaximized ? 'maximized' : ''}`}
+      aria-label={`${app.title} window`}
+      style={windowStyle}
+      onPointerDown={onFocus}
+    >
       <div className="window-frame-glow" aria-hidden="true"></div>
 
-      <div className="window-titlebar">
+      {/* Resize handles (hidden when maximized) */}
+      {!isMaximized && RESIZE_EDGES.map(edge => (
+        <div
+          key={edge}
+          className={`win-resize-handle win-resize-${edge}`}
+          data-edge={edge}
+          onPointerDown={onResizePointerDown}
+          onPointerMove={onResizePointerMove}
+          onPointerUp={onResizePointerUp}
+          onPointerCancel={onResizePointerUp}
+        />
+      ))}
+
+      <div
+        className="window-titlebar"
+        onPointerDown={onTitlePointerDown}
+        onPointerMove={onTitlePointerMove}
+        onPointerUp={onTitlePointerUp}
+        onPointerCancel={onTitlePointerUp}
+        onDoubleClick={onTitleDoubleClick}
+        style={{ cursor: isMaximized ? 'default' : 'grab', touchAction: 'none' }}
+      >
         <div className="window-title">
           <span className={`window-favicon ${app.accent}`}>{app.icon}</span>
           <span>{app.title}</span>
@@ -217,11 +409,15 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const suppressNextDesktopClick = useRef(false);
   const [selectedIds, setSelectedIds] = useState(['about']);
   const [selectionBox, setSelectionBox] = useState(null);
-  const [activeAppId, setActiveAppId] = useState(null);
-  const [isMaximized, setIsMaximized] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
   const [isStartOpen, setIsStartOpen] = useState(false);
   const [themeColors, setThemeColors] = useState(getInitialThemeColors);
+
+  /* ---- Multi-window state ---- */
+  const [openWindows, setOpenWindows] = useState([]);
+  // openWindows entries: { id, isMaximized, isMinimized, zIndex }
+  const zCounterRef = useRef(1);
+
+  const nextZ = useCallback(() => ++zCounterRef.current, []);
 
   useEffect(() => {
     window.localStorage.setItem(colorStorageKey, JSON.stringify(themeColors));
@@ -308,7 +504,6 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     ...externalApps.map(item => ({ ...item, kind: 'external' }))
   ], [internalApps, externalApps]);
 
-  const activeApp = internalApps.find(app => app.id === activeAppId);
   const activeSelectionRect = selectionBox ? getSelectionRect(selectionBox) : null;
   const isSelectionVisible = activeSelectionRect
     && (activeSelectionRect.width > selectionThreshold || activeSelectionRect.height > selectionThreshold);
@@ -391,6 +586,14 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     setSelectionBox(null);
   };
 
+  /* ---- Multi-window helpers ---- */
+  const focusWindow = useCallback((windowId) => {
+    const z = nextZ();
+    setOpenWindows(prev => prev.map(w =>
+      w.id === windowId ? { ...w, zIndex: z } : w
+    ));
+  }, [nextZ]);
+
   const openItem = (item) => {
     setSelectedIds([item.id]);
     setIsStartOpen(false);
@@ -405,26 +608,60 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       return;
     }
 
-    setActiveAppId(item.id);
-    setIsMinimized(false);
+    setOpenWindows(prev => {
+      const existing = prev.find(w => w.id === item.id);
+      if (existing) {
+        // already open — bring to front and un-minimize
+        const z = nextZ();
+        return prev.map(w =>
+          w.id === item.id ? { ...w, isMinimized: false, zIndex: z } : w
+        );
+      }
+      // open new window
+      return [...prev, { id: item.id, isMaximized: false, isMinimized: false, zIndex: nextZ() }];
+    });
   };
 
-  const closeWindow = () => {
-    setActiveAppId(null);
-    setIsMinimized(false);
-    setIsMaximized(false);
-  };
+  const closeWindow = useCallback((windowId) => {
+    setOpenWindows(prev => prev.filter(w => w.id !== windowId));
+  }, []);
 
-  const activeTaskbarItem = activeApp && (
-    <button
-      type="button"
-      className={`taskbar-app ${isMinimized ? 'minimized' : 'active'}`}
-      onClick={() => setIsMinimized(prev => !prev)}
-    >
-      <span className={`taskbar-app-icon ${activeApp.accent}`}>{activeApp.icon}</span>
-      <span>{activeApp.title}</span>
-    </button>
-  );
+  const minimizeWindow = useCallback((windowId) => {
+    setOpenWindows(prev => prev.map(w =>
+      w.id === windowId ? { ...w, isMinimized: true } : w
+    ));
+  }, []);
+
+  const toggleMaximizeWindow = useCallback((windowId) => {
+    setOpenWindows(prev => prev.map(w =>
+      w.id === windowId ? { ...w, isMaximized: !w.isMaximized } : w
+    ));
+  }, []);
+
+  const toggleMinimizeFromTaskbar = useCallback((windowId) => {
+    setOpenWindows(prev => {
+      const win = prev.find(w => w.id === windowId);
+      if (!win) return prev;
+      if (win.isMinimized) {
+        // restore and bring to front
+        const z = nextZ();
+        return prev.map(w =>
+          w.id === windowId ? { ...w, isMinimized: false, zIndex: z } : w
+        );
+      }
+      // check if it's already the topmost — if so, minimize it; otherwise focus it
+      const maxZ = Math.max(...prev.map(w => w.zIndex));
+      if (win.zIndex === maxZ) {
+        return prev.map(w =>
+          w.id === windowId ? { ...w, isMinimized: true } : w
+        );
+      }
+      const z = nextZ();
+      return prev.map(w =>
+        w.id === windowId ? { ...w, zIndex: z } : w
+      );
+    });
+  }, [nextZ]);
 
   return (
     <div
@@ -506,20 +743,28 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         </aside>
       </main>
 
-      {activeApp && !isMinimized && (
-        <div className="desktop-window-layer">
-          <BrowserWindow
-            app={activeApp}
-            isMaximized={isMaximized}
-            onClose={closeWindow}
-            onMinimize={() => setIsMinimized(true)}
-            onToggleMaximize={() => setIsMaximized(prev => !prev)}
-            theme={theme}
-            themeColors={themeColors}
-            onThemeColorsChange={setThemeColors}
-          />
-        </div>
-      )}
+      {/* ---- Multiple open windows ---- */}
+      <div className="desktop-window-layer">
+        {openWindows.map(win => {
+          const app = internalApps.find(a => a.id === win.id);
+          if (!app || win.isMinimized) return null;
+          return (
+            <BrowserWindow
+              key={win.id}
+              app={app}
+              isMaximized={win.isMaximized}
+              zIndex={win.zIndex}
+              onFocus={() => focusWindow(win.id)}
+              onClose={() => closeWindow(win.id)}
+              onMinimize={() => minimizeWindow(win.id)}
+              onToggleMaximize={() => toggleMaximizeWindow(win.id)}
+              theme={theme}
+              themeColors={themeColors}
+              onThemeColorsChange={setThemeColors}
+            />
+          );
+        })}
+      </div>
 
       <nav className="win7-taskbar" aria-label="Desktop taskbar">
         <div className="taskbar-left">
@@ -552,7 +797,23 @@ const DesktopShell = ({ theme, toggleTheme }) => {
             </div>
           )}
 
-          {activeTaskbarItem}
+          {openWindows.map(win => {
+            const app = internalApps.find(a => a.id === win.id);
+            if (!app) return null;
+            const topZ = Math.max(...openWindows.map(w => w.zIndex));
+            const isFocused = !win.isMinimized && win.zIndex === topZ;
+            return (
+              <button
+                type="button"
+                key={win.id}
+                className={`taskbar-app ${win.isMinimized ? 'minimized' : isFocused ? 'active' : ''}`}
+                onClick={() => toggleMinimizeFromTaskbar(win.id)}
+              >
+                <span className={`taskbar-app-icon ${app.accent}`}>{app.icon}</span>
+                <span>{app.title}</span>
+              </button>
+            );
+          })}
 
           <button type="button" className="taskbar-theme" onClick={toggleTheme}>
             {theme === 'dark' ? 'Dark' : 'Light'}
@@ -566,3 +827,4 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 };
 
 export default DesktopShell;
+
