@@ -184,7 +184,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     {
       id: 'cv',
       title: 'Resume',
-      href: '/Hasan_s_cv (14).pdf',
+      href: '/Hasan-Haider-Resume.pdf',
       icon: <FileText size={28} />,
       accent: 'accent-red'
     },

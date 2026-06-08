@@ -54,7 +54,7 @@ const Header = ({ theme, toggleTheme }) => {
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <a href="/Hasan_s_cv (14).pdf" className="btn btn-secondary btn-sm download-cv-btn" target="_blank" rel="noreferrer">
+          <a href="/Hasan-Haider-Resume.pdf" className="btn btn-secondary btn-sm download-cv-btn" target="_blank" rel="noreferrer">
             <Download size={16} /> CV
           </a>
           <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -76,7 +76,7 @@ const Header = ({ theme, toggleTheme }) => {
           </a>
         ))}
         <div className="mobile-actions">
-          <a href="/Hasan_s_cv (14).pdf" className="btn btn-secondary" target="_blank" rel="noreferrer">
+          <a href="/Hasan-Haider-Resume.pdf" className="btn btn-secondary" target="_blank" rel="noreferrer">
             <Download size={16} /> Download CV
           </a>
         </div>
