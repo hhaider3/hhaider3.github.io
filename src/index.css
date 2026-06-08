@@ -2927,6 +2927,7 @@
    }
 
    .widget-clock,
+   .widget-stats,
    .widget-colors {
        padding: 10px;
    }
@@ -3701,6 +3702,7 @@
        }
 
        .widget-clock,
+       .widget-stats,
        .widget-colors {
            padding: 12px;
        }

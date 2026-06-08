@@ -130,10 +130,12 @@ const GaugeDial = ({ value, min = 0, max, label, unit, tickCount = 5 }) => {
 const useFps = () => {
   const [fps, setFps] = useState(0);
   const frames = useRef(0);
-  const last = useRef(performance.now());
+  const last = useRef(0);
   const raf = useRef(null);
 
   useEffect(() => {
+    last.current = performance.now();
+
     const tick = (now) => {
       frames.current++;
       if (now - last.current >= 1000) {
