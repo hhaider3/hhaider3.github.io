@@ -25,6 +25,7 @@ import Projects from './Projects';
 import Skills from './Skills';
 import Publications from './Publications';
 import Contact from './Contact';
+import ResumeViewer from './ResumeViewer';
 import DualClock from './DualClock';
 import ColorSwitcher from './ColorSwitcher';
 import SystemStats from './SystemStats';
@@ -649,17 +650,17 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       component: Contact,
       icon: <Mail size={28} />,
       accent: 'accent-rose'
+    },
+    {
+      id: 'cv',
+      title: 'Resume',
+      component: ResumeViewer,
+      icon: <FileText size={28} />,
+      accent: 'accent-red'
     }
   ], []);
 
   const externalApps = useMemo(() => [
-    {
-      id: 'cv',
-      title: 'Resume',
-      href: '/Hasan-Haider-Resume.pdf',
-      icon: <FileText size={28} />,
-      accent: 'accent-red'
-    },
     {
       id: 'github',
       title: 'GitHub',
