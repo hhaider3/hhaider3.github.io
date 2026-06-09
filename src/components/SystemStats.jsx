@@ -190,8 +190,9 @@ const useNetwork = () => {
 };
 
 /* ─── Main Widget ─── */
-const SystemStats = () => {
-  const [isExpanded, setIsExpanded] = useState(false);
+const SystemStats = ({ isExpanded: controlledExpanded, onExpandedChange } = {}) => {
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const isExpanded = controlledExpanded ?? localExpanded;
   const fps = useFps();
   const mem = useMemory();
   const net = useNetwork();
@@ -243,6 +244,15 @@ const SystemStats = () => {
     });
   }
 
+  const toggleExpanded = () => {
+    const nextExpanded = !isExpanded;
+    if (onExpandedChange) {
+      onExpandedChange(nextExpanded);
+      return;
+    }
+    setLocalExpanded(nextExpanded);
+  };
+
   return (
     <div className="sys-stats-widget">
       <div className="sys-stats-header">
@@ -268,7 +278,7 @@ const SystemStats = () => {
         className="sys-stats-toggle"
         aria-controls="sys-stats-extra"
         aria-expanded={isExpanded}
-        onClick={() => setIsExpanded(prev => !prev)}
+        onClick={toggleExpanded}
       >
         <span>{isExpanded ? 'Show less' : 'See more'}</span>
         {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}

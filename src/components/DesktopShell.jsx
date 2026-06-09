@@ -34,6 +34,7 @@ import wallpaper from '../assets/win7-portfolio-wallpaper.png';
 const linkedInUrl = 'https://www.linkedin.com/in/hasan-haider-52026a67/';
 const colorStorageKey = 'portfolioThemeColors';
 const desktopLayoutStorageKey = 'portfolioDesktopLayout';
+const desktopLayoutVersion = 2;
 
 const getInitialThemeColors = () => {
   if (typeof window === 'undefined') {
@@ -445,17 +446,17 @@ const desktopTaskbarHeight = 56;
 const desktopMargin = 12;
 const widgetResizeEdges = ['e', 's', 'se'];
 const widgetLabels = {
-  profile: 'Profile',
   clock: 'Clock',
   stats: 'System',
   colors: 'Colors'
 };
 const widgetMinimums = {
-  profile: { w: 220, h: 78 },
-  clock: { w: 260, h: 112 },
+  clock: { w: 260, h: 132 },
   stats: { w: 250, h: 150 },
-  colors: { w: 260, h: 210 },
+  colors: { w: 260, h: 260 },
 };
+const statsCollapsedWidgetHeight = 182;
+const statsExpandedWidgetHeight = 318;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -492,10 +493,9 @@ const getDefaultWidgetRects = () => {
   const x = Math.max(desktopMargin, window.innerWidth - 34 - w);
 
   return {
-    profile: { x, y: 16, w, h: 80 },
-    clock: { x, y: 106, w, h: 116 },
-    stats: { x, y: 232, w, h: 172 },
-    colors: { x, y: 414, w, h: 234 },
+    clock: { x, y: 16, w, h: 142 },
+    stats: { x, y: 168, w, h: statsCollapsedWidgetHeight },
+    colors: { x, y: 360, w, h: 278 },
   };
 };
 
@@ -531,7 +531,8 @@ const loadDesktopLayout = () => {
   }
 
   try {
-    return JSON.parse(window.localStorage.getItem(desktopLayoutStorageKey));
+    const savedLayout = JSON.parse(window.localStorage.getItem(desktopLayoutStorageKey));
+    return savedLayout?.version === desktopLayoutVersion ? savedLayout : null;
   } catch {
     return null;
   }
@@ -583,7 +584,8 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const [selectionBox, setSelectionBox] = useState(null);
   const [iconPositions, setIconPositions] = useState(getInitialIconPositions);
   const [widgetRects, setWidgetRects] = useState(getInitialWidgetRects);
-  const [widgetZIndexes, setWidgetZIndexes] = useState({ profile: 1, clock: 2, stats: 3, colors: 4 });
+  const [widgetZIndexes, setWidgetZIndexes] = useState({ clock: 1, stats: 2, colors: 3 });
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isStartOpen, setIsStartOpen] = useState(false);
   const [themeColors, setThemeColors] = useState(getInitialThemeColors);
 
@@ -596,7 +598,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const [openWindows, setOpenWindows] = useState([]);
   // openWindows entries: { id, isMaximized, isMinimized, zIndex }
   const zCounterRef = useRef(1);
-  const widgetZCounterRef = useRef(4);
+  const widgetZCounterRef = useRef(3);
 
   const nextZ = useCallback(() => ++zCounterRef.current, []);
   const nextWidgetZ = useCallback(() => ++widgetZCounterRef.current, []);
@@ -686,23 +688,29 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     ...externalApps.map(item => ({ ...item, kind: 'external' }))
   ], [internalApps, externalApps]);
 
+  const handleStatsExpandedChange = useCallback((nextExpanded) => {
+    setIsStatsExpanded(nextExpanded);
+
+    if (isMobile) {
+      return;
+    }
+
+    setWidgetRects((prev) => {
+      const current = prev.stats || getDefaultWidgetRects().stats;
+      const nextHeight = nextExpanded ? statsExpandedWidgetHeight : statsCollapsedWidgetHeight;
+
+      return {
+        ...prev,
+        stats: clampWidgetRect({ ...current, h: nextHeight }, 'stats'),
+      };
+    });
+
+    if (nextExpanded) {
+      setWidgetZIndexes(prev => ({ ...prev, stats: nextWidgetZ() }));
+    }
+  }, [isMobile, nextWidgetZ]);
+
   const widgets = useMemo(() => [
-    {
-      id: 'profile',
-      className: 'desktop-profile-widget',
-      content: (
-        <>
-          <div className="desktop-profile-orb" aria-hidden="true">
-            <span>HH</span>
-          </div>
-          <div>
-            <p className="desktop-kicker">Software Engineer</p>
-            <h1>Hasan Haider</h1>
-            <p>Frontend performance, AI tooling, and cybersecurity with a portfolio built like a tiny operating system.</p>
-          </div>
-        </>
-      )
-    },
     {
       id: 'clock',
       className: 'widget-clock',
@@ -711,7 +719,12 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     {
       id: 'stats',
       className: 'widget-stats',
-      content: <SystemStats />
+      content: (
+        <SystemStats
+          isExpanded={isStatsExpanded}
+          onExpandedChange={handleStatsExpandedChange}
+        />
+      )
     },
     {
       id: 'colors',
@@ -725,7 +738,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         />
       )
     }
-  ], [theme, themeColors]);
+  ], [handleStatsExpandedChange, isStatsExpanded, theme, themeColors]);
 
   useEffect(() => {
     if (isMobile || Object.keys(iconPositions).length === 0 || Object.keys(widgetRects).length === 0) {
@@ -733,6 +746,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     }
 
     window.localStorage.setItem(desktopLayoutStorageKey, JSON.stringify({
+      version: desktopLayoutVersion,
       icons: iconPositions,
       widgets: widgetRects,
     }));
@@ -1174,8 +1188,9 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     window.localStorage.removeItem(desktopLayoutStorageKey);
     setIconPositions(getInitialIconPositions());
     setWidgetRects(getInitialWidgetRects());
-    setWidgetZIndexes({ profile: 1, clock: 2, stats: 3, colors: 4 });
-    widgetZCounterRef.current = 4;
+    setWidgetZIndexes({ clock: 1, stats: 2, colors: 3 });
+    setIsStatsExpanded(false);
+    widgetZCounterRef.current = 3;
     setSelectedIds([]);
     setIsStartOpen(false);
   };
