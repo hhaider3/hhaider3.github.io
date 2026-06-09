@@ -1022,6 +1022,10 @@
        box-shadow: var(--shadow-md);
    }
 
+   .dated-timeline-item:hover {
+       z-index: 10;
+   }
+
    .timeline-education:hover .experience-card {
        border-left-color: var(--secondary);
    }
@@ -1112,9 +1116,7 @@
 
    .exp-details-inner {
        min-height: 0;
-       max-height: 112px;
-       overflow-x: hidden;
-       overflow-y: auto;
+       overflow: hidden;
        padding-right: 4px;
        display: flex;
        flex-direction: column;

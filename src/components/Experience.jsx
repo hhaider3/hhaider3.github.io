@@ -28,7 +28,20 @@ const timelineData = [
     start: { year: 2024, month: 8 },
     end: { year: 2026, month: 5 },
     location: 'Tempe, AZ',
-    detail: 'Specialization in Cybersecurity',
+    detail: <React.Fragment>GPA: 3.5/4.0<br />Specialization in Cybersecurity</React.Fragment>,
+    tags: [
+      'Software Specification',
+      'Information Assurance & Security',
+      'Advanced Data Structures & Algorithms',
+      'Foundation of Software Engineering',
+      'Advanced Computer Network Security',
+      'Software Verification/Validation/Testing',
+      'Languages & Programming Paradigms',
+      'Applied Cryptography',
+      'Software Requirements & Specification',
+      'Game Programming & Design',
+      'Software Factory Capstone'
+    ],
   },
   {
     id: 'gae-frontend',
@@ -150,7 +163,7 @@ const Experience = () => {
           <h2 className="section-title">Experience & Education</h2>
           <div className="title-underline"></div>
         </div>
-        
+
         <div
           className="proportional-timeline scroll-animate fade-in-up"
           style={{
@@ -200,63 +213,63 @@ const Experience = () => {
 
             <div className="timeline-items-container">
               {timelineItems.map((item) => {
-              const isWork = item.type === 'work';
-              
-              return (
-                <article 
-                  key={item.id} 
-                  className={`dated-timeline-item timeline-${item.type} timeline-${item.lane}`}
-                  style={{ '--item-top': `${item.cardOffset}px` }}
-                >
-                  <div className="timeline-mobile-marker" aria-hidden="true">
-                    <div className={`timeline-mobile-dot timeline-mobile-dot-${item.type}`}>
-                      {isWork ? <Briefcase size={18} /> : <GraduationCap size={18} />}
-                    </div>
-                  </div>
+                const isWork = item.type === 'work';
 
-                  <div className="experience-card card">
-                    <div className="exp-header">
-                      <div className="exp-title-group">
-                        <span className={`exp-type-badge ${item.type}`}>
-                          {isWork ? 'Work' : 'Education'}
-                        </span>
-                        <h3 className="exp-role">{item.title}</h3>
-                        <h4 className="exp-company">{item.org}</h4>
-                      </div>
-                      <div className="exp-meta">
-                        <span className="exp-date">
-                          <Calendar size={16} /> {item.date}
-                        </span>
-                        <span className="exp-location"><MapPin size={16} /> {item.location}</span>
+                return (
+                  <article
+                    key={item.id}
+                    className={`dated-timeline-item timeline-${item.type} timeline-${item.lane}`}
+                    style={{ '--item-top': `${item.cardOffset}px` }}
+                  >
+                    <div className="timeline-mobile-marker" aria-hidden="true">
+                      <div className={`timeline-mobile-dot timeline-mobile-dot-${item.type}`}>
+                        {isWork ? <Briefcase size={18} /> : <GraduationCap size={18} />}
                       </div>
                     </div>
 
-                    <div className="exp-details-wrapper">
-                      <div className="exp-details-inner">
-                        {item.detail && (
-                          <p className="edu-spec">{item.detail}</p>
-                        )}
+                    <div className="experience-card card">
+                      <div className="exp-header">
+                        <div className="exp-title-group">
+                          <span className={`exp-type-badge ${item.type}`}>
+                            {isWork ? 'Work' : 'Education'}
+                          </span>
+                          <h3 className="exp-role">{item.title}</h3>
+                          <h4 className="exp-company">{item.org}</h4>
+                        </div>
+                        <div className="exp-meta">
+                          <span className="exp-date">
+                            <Calendar size={16} /> {item.date}
+                          </span>
+                          <span className="exp-location"><MapPin size={16} /> {item.location}</span>
+                        </div>
+                      </div>
 
-                        {item.tags && (
-                          <div className="exp-tags">
-                            {item.tags.map((tag, j) => (
-                              <span className="tag" key={j}>{tag}</span>
-                            ))}
-                          </div>
-                        )}
+                      <div className="exp-details-wrapper">
+                        <div className="exp-details-inner">
+                          {item.detail && (
+                            <p className="edu-spec">{item.detail}</p>
+                          )}
 
-                        {item.bullets && (
-                          <ul className="exp-bullets">
-                            {item.bullets.map((bullet, j) => (
-                              <li key={j}>{bullet}</li>
-                            ))}
-                          </ul>
-                        )}
+                          {item.tags && (
+                            <div className="exp-tags">
+                              {item.tags.map((tag, j) => (
+                                <span className="tag" key={j}>{tag}</span>
+                              ))}
+                            </div>
+                          )}
+
+                          {item.bullets && (
+                            <ul className="exp-bullets">
+                              {item.bullets.map((bullet, j) => (
+                                <li key={j}>{bullet}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </article>
-              );
+                  </article>
+                );
               })}
             </div>
           </div>
