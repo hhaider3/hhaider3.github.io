@@ -33,6 +33,7 @@ import wallpaper from '../assets/win7-portfolio-wallpaper.png';
 
 const linkedInUrl = 'https://www.linkedin.com/in/hasan-haider-52026a67/';
 const colorStorageKey = 'portfolioThemeColors';
+const desktopLayoutStorageKey = 'portfolioDesktopLayout';
 
 const getInitialThemeColors = () => {
   if (typeof window === 'undefined') {
@@ -98,8 +99,24 @@ const TaskbarClock = () => {
   );
 };
 
-const DesktopIcon = ({ item, isSelected, onSelect, onOpen }) => {
+const DesktopIcon = ({
+  item,
+  isSelected,
+  onSelect,
+  onOpen,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  shouldSuppressClick,
+  style,
+  isFreeform
+}) => {
   const handleClick = () => {
+    if (shouldSuppressClick?.(item.id)) {
+      return;
+    }
+
     if (window.matchMedia('(pointer: coarse)').matches) {
       onOpen(item);
       return;
@@ -112,7 +129,12 @@ const DesktopIcon = ({ item, isSelected, onSelect, onOpen }) => {
     <button
       type="button"
       data-desktop-id={item.id}
-      className={`desktop-icon ${isSelected ? 'selected' : ''}`}
+      className={`desktop-icon ${isSelected ? 'selected' : ''} ${isFreeform ? 'desktop-icon-freeform' : ''}`}
+      style={style}
+      onPointerDown={(event) => onPointerDown?.(event, item)}
+      onPointerMove={(event) => onPointerMove?.(event, item)}
+      onPointerUp={(event) => onPointerUp?.(event, item)}
+      onPointerCancel={(event) => onPointerCancel?.(event, item)}
       onClick={handleClick}
       onDoubleClick={() => onOpen(item)}
       onKeyDown={(event) => {
@@ -418,6 +440,24 @@ const BrowserWindow = ({
 };
 
 const selectionThreshold = 4;
+const iconDragThreshold = 5;
+const desktopTaskbarHeight = 56;
+const desktopMargin = 12;
+const widgetResizeEdges = ['e', 's', 'se'];
+const widgetLabels = {
+  profile: 'Profile',
+  clock: 'Clock',
+  stats: 'System',
+  colors: 'Colors'
+};
+const widgetMinimums = {
+  profile: { w: 220, h: 78 },
+  clock: { w: 260, h: 112 },
+  stats: { w: 250, h: 150 },
+  colors: { w: 260, h: 210 },
+};
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 const getSelectionRect = ({ startX, startY, currentX, currentY }) => ({
   left: Math.min(startX, currentX),
@@ -433,13 +473,117 @@ const doesRectIntersect = (a, b) => (
   && a.top + a.height > b.top
 );
 
+const getDefaultIconPosition = (index) => {
+  const rows = 5;
+  const col = Math.floor(index / rows);
+  const row = index % rows;
+  return {
+    x: 34 + col * 110,
+    y: 16 + row * 104,
+  };
+};
+
+const getDefaultWidgetRects = () => {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  const w = 430;
+  const x = Math.max(desktopMargin, window.innerWidth - 34 - w);
+
+  return {
+    profile: { x, y: 16, w, h: 80 },
+    clock: { x, y: 106, w, h: 116 },
+    stats: { x, y: 232, w, h: 172 },
+    colors: { x, y: 414, w, h: 234 },
+  };
+};
+
+const clampDesktopPoint = ({ x, y }, width, height) => {
+  if (typeof window === 'undefined') {
+    return { x, y };
+  }
+
+  return {
+    x: clamp(x, desktopMargin, window.innerWidth - width - desktopMargin),
+    y: clamp(y, desktopMargin, window.innerHeight - desktopTaskbarHeight - height - desktopMargin),
+  };
+};
+
+const clampWidgetRect = (rect, id) => {
+  if (typeof window === 'undefined') {
+    return rect;
+  }
+
+  const min = widgetMinimums[id] || { w: 220, h: 120 };
+  const maxW = Math.max(min.w, window.innerWidth - desktopMargin * 2);
+  const maxH = Math.max(min.h, window.innerHeight - desktopTaskbarHeight - desktopMargin * 2);
+  const w = clamp(rect.w, min.w, maxW);
+  const h = clamp(rect.h, min.h, maxH);
+  const point = clampDesktopPoint({ x: rect.x, y: rect.y }, w, h);
+
+  return { ...point, w, h };
+};
+
+const loadDesktopLayout = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(window.localStorage.getItem(desktopLayoutStorageKey));
+  } catch {
+    return null;
+  }
+};
+
+const desktopIconOrder = [
+  'about',
+  'experience',
+  'projects',
+  'skills',
+  'publications',
+  'contact',
+  'cv',
+  'github',
+  'linkedin',
+  'email'
+];
+
+const getInitialIconPositions = () => {
+  const savedLayout = loadDesktopLayout();
+  return desktopIconOrder.reduce((positions, id, index) => {
+    positions[id] = clampDesktopPoint(
+      savedLayout?.icons?.[id] || getDefaultIconPosition(index),
+      96,
+      96
+    );
+    return positions;
+  }, {});
+};
+
+const getInitialWidgetRects = () => {
+  const savedLayout = loadDesktopLayout();
+  const defaultWidgets = getDefaultWidgetRects();
+
+  return Object.keys(defaultWidgets).reduce((rects, id) => {
+    rects[id] = clampWidgetRect(savedLayout?.widgets?.[id] || defaultWidgets[id], id);
+    return rects;
+  }, {});
+};
+
 const DesktopShell = ({ theme, toggleTheme }) => {
   const isMobile = useIsMobile();
   const desktopRef = useRef(null);
   const activeSelectionPointer = useRef(null);
+  const activeDesktopDrag = useRef(null);
   const suppressNextDesktopClick = useRef(false);
+  const suppressIconClick = useRef(null);
   const [selectedIds, setSelectedIds] = useState(['about']);
   const [selectionBox, setSelectionBox] = useState(null);
+  const [iconPositions, setIconPositions] = useState(getInitialIconPositions);
+  const [widgetRects, setWidgetRects] = useState(getInitialWidgetRects);
+  const [widgetZIndexes, setWidgetZIndexes] = useState({ profile: 1, clock: 2, stats: 3, colors: 4 });
   const [isStartOpen, setIsStartOpen] = useState(false);
   const [themeColors, setThemeColors] = useState(getInitialThemeColors);
 
@@ -452,8 +596,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const [openWindows, setOpenWindows] = useState([]);
   // openWindows entries: { id, isMaximized, isMinimized, zIndex }
   const zCounterRef = useRef(1);
+  const widgetZCounterRef = useRef(4);
 
   const nextZ = useCallback(() => ++zCounterRef.current, []);
+  const nextWidgetZ = useCallback(() => ++widgetZCounterRef.current, []);
 
   useEffect(() => {
     window.localStorage.setItem(colorStorageKey, JSON.stringify(themeColors));
@@ -540,6 +686,58 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     ...externalApps.map(item => ({ ...item, kind: 'external' }))
   ], [internalApps, externalApps]);
 
+  const widgets = useMemo(() => [
+    {
+      id: 'profile',
+      className: 'desktop-profile-widget',
+      content: (
+        <>
+          <div className="desktop-profile-orb" aria-hidden="true">
+            <span>HH</span>
+          </div>
+          <div>
+            <p className="desktop-kicker">Software Engineer</p>
+            <h1>Hasan Haider</h1>
+            <p>Frontend performance, AI tooling, and cybersecurity with a portfolio built like a tiny operating system.</p>
+          </div>
+        </>
+      )
+    },
+    {
+      id: 'clock',
+      className: 'widget-clock',
+      content: <DualClock />
+    },
+    {
+      id: 'stats',
+      className: 'widget-stats',
+      content: <SystemStats />
+    },
+    {
+      id: 'colors',
+      className: 'widget-colors',
+      content: (
+        <ColorSwitcher
+          theme={theme}
+          colors={themeColors}
+          onColorsChange={setThemeColors}
+          wheelSize={72}
+        />
+      )
+    }
+  ], [theme, themeColors]);
+
+  useEffect(() => {
+    if (isMobile || Object.keys(iconPositions).length === 0 || Object.keys(widgetRects).length === 0) {
+      return;
+    }
+
+    window.localStorage.setItem(desktopLayoutStorageKey, JSON.stringify({
+      icons: iconPositions,
+      widgets: widgetRects,
+    }));
+  }, [iconPositions, isMobile, widgetRects]);
+
   const activeSelectionRect = selectionBox ? getSelectionRect(selectionBox) : null;
   const isSelectionVisible = activeSelectionRect
     && (activeSelectionRect.width > selectionThreshold || activeSelectionRect.height > selectionThreshold);
@@ -620,6 +818,273 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     suppressNextDesktopClick.current = finalRect.width > selectionThreshold || finalRect.height > selectionThreshold;
     activeSelectionPointer.current = null;
     setSelectionBox(null);
+  };
+
+  const shouldBlockWidgetDrag = (target) => {
+    if (!(target instanceof Element)) {
+      return true;
+    }
+
+    return !!target.closest(
+      'button, a, input, textarea, select, canvas, .desktop-widget-resize-handle, .cs-wheel-wrapper, .cs-slider, .sys-stats-toggle'
+    );
+  };
+
+  const handleIconPointerDown = (event, item) => {
+    if (isMobile || event.button !== 0 || event.pointerType === 'touch') {
+      return;
+    }
+
+    const position = iconPositions[item.id] || getDefaultIconPosition(desktopItems.findIndex(entry => entry.id === item.id));
+    event.currentTarget.setPointerCapture(event.pointerId);
+    activeDesktopDrag.current = {
+      type: 'icon',
+      id: item.id,
+      pointerId: event.pointerId,
+      startMouseX: event.clientX,
+      startMouseY: event.clientY,
+      startX: position.x,
+      startY: position.y,
+      moved: false,
+    };
+    setSelectedIds([item.id]);
+    setIsStartOpen(false);
+  };
+
+  const handleIconPointerMove = (event) => {
+    const drag = activeDesktopDrag.current;
+    if (!drag || drag.type !== 'icon' || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const dx = event.clientX - drag.startMouseX;
+    const dy = event.clientY - drag.startMouseY;
+    const moved = drag.moved || Math.abs(dx) > iconDragThreshold || Math.abs(dy) > iconDragThreshold;
+
+    if (!moved) {
+      return;
+    }
+
+    event.preventDefault();
+    drag.moved = true;
+    const nextPoint = clampDesktopPoint({
+      x: drag.startX + dx,
+      y: drag.startY + dy,
+    }, 96, 96);
+
+    setIconPositions(prev => ({
+      ...prev,
+      [drag.id]: nextPoint,
+    }));
+  };
+
+  const finishIconDrag = (event) => {
+    const drag = activeDesktopDrag.current;
+    if (!drag || drag.type !== 'icon' || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    if (drag.moved) {
+      suppressIconClick.current = drag.id;
+    }
+
+    activeDesktopDrag.current = null;
+  };
+
+  const consumeSuppressedIconClick = (id) => {
+    if (suppressIconClick.current !== id) {
+      return false;
+    }
+
+    suppressIconClick.current = null;
+    return true;
+  };
+
+  const handleWidgetPointerDown = (event, widgetId) => {
+    if (isMobile || event.button !== 0 || event.pointerType === 'touch') {
+      return;
+    }
+
+    const nextZIndex = nextWidgetZ();
+    setWidgetZIndexes(prev => ({
+      ...prev,
+      [widgetId]: nextZIndex,
+    }));
+
+    const rect = widgetRects[widgetId] || getDefaultWidgetRects()[widgetId];
+    const panelRect = event.currentTarget.getBoundingClientRect();
+    const nearRight = panelRect.right - event.clientX <= 18;
+    const nearBottom = panelRect.bottom - event.clientY <= 18;
+    const resizeEdge = nearRight && nearBottom ? 'se' : nearRight ? 'e' : nearBottom ? 's' : '';
+
+    if (resizeEdge) {
+      startWidgetResize(event, widgetId, resizeEdge, rect);
+      return;
+    }
+
+    if (shouldBlockWidgetDrag(event.target)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    activeDesktopDrag.current = {
+      type: 'widget-move',
+      id: widgetId,
+      pointerId: event.pointerId,
+      startMouseX: event.clientX,
+      startMouseY: event.clientY,
+      startX: rect.x,
+      startY: rect.y,
+      startW: rect.w,
+      startH: rect.h,
+    };
+    setIsStartOpen(false);
+  };
+
+  const handleWidgetResizePointerDown = (event, widgetId) => {
+    if (isMobile || event.button !== 0) {
+      return;
+    }
+
+    const nextZIndex = nextWidgetZ();
+    setWidgetZIndexes(prev => ({
+      ...prev,
+      [widgetId]: nextZIndex,
+    }));
+
+    const edge = event.currentTarget.dataset.edge;
+    const rect = widgetRects[widgetId] || getDefaultWidgetRects()[widgetId];
+    event.stopPropagation();
+    startWidgetResize(event, widgetId, edge, rect);
+  };
+
+  const startWidgetResize = (event, widgetId, edge, rect) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    const resizeState = {
+      type: 'widget-resize',
+      id: widgetId,
+      edge,
+      pointerId: event.pointerId,
+      startMouseX: event.clientX,
+      startMouseY: event.clientY,
+      startX: rect.x,
+      startY: rect.y,
+      startW: rect.w,
+      startH: rect.h,
+    };
+    activeDesktopDrag.current = resizeState;
+
+    const onMove = (moveEvent) => {
+      if (moveEvent.pointerId !== resizeState.pointerId) {
+        return;
+      }
+
+      const dx = moveEvent.clientX - resizeState.startMouseX;
+      const dy = moveEvent.clientY - resizeState.startMouseY;
+      let nextRect = {
+        x: resizeState.startX,
+        y: resizeState.startY,
+        w: resizeState.startW,
+        h: resizeState.startH,
+      };
+
+      if (resizeState.edge.includes('e')) {
+        nextRect.w = resizeState.startW + dx;
+      }
+      if (resizeState.edge.includes('s')) {
+        nextRect.h = resizeState.startH + dy;
+      }
+
+      nextRect = clampWidgetRect(nextRect, resizeState.id);
+      setWidgetRects(prev => ({
+        ...prev,
+        [resizeState.id]: nextRect,
+      }));
+    };
+
+    const onUp = (upEvent) => {
+      if (upEvent.pointerId !== resizeState.pointerId) {
+        return;
+      }
+
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      activeDesktopDrag.current = null;
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  };
+
+  const handleWidgetPointerMove = (event) => {
+    const drag = activeDesktopDrag.current;
+    if (!drag || !drag.type.startsWith('widget') || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    const dx = event.clientX - drag.startMouseX;
+    const dy = event.clientY - drag.startMouseY;
+
+    if (drag.type === 'widget-move') {
+      const point = clampDesktopPoint({
+        x: drag.startX + dx,
+        y: drag.startY + dy,
+      }, drag.startW, drag.startH);
+
+      setWidgetRects(prev => ({
+        ...prev,
+        [drag.id]: {
+          ...(prev[drag.id] || {}),
+          ...point,
+          w: drag.startW,
+          h: drag.startH,
+        },
+      }));
+      return;
+    }
+
+    let nextRect = {
+      x: drag.startX,
+      y: drag.startY,
+      w: drag.startW,
+      h: drag.startH,
+    };
+
+    if (drag.edge.includes('e')) {
+      nextRect.w = drag.startW + dx;
+    }
+    if (drag.edge.includes('s')) {
+      nextRect.h = drag.startH + dy;
+    }
+
+    nextRect = clampWidgetRect(nextRect, drag.id);
+    setWidgetRects(prev => ({
+      ...prev,
+      [drag.id]: nextRect,
+    }));
+  };
+
+  const finishWidgetDrag = (event) => {
+    const drag = activeDesktopDrag.current;
+    if (!drag || !drag.type.startsWith('widget') || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    activeDesktopDrag.current = null;
   };
 
   /* ---- Multi-window helpers ---- */
@@ -705,6 +1170,16 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     });
   }, [nextZ]);
 
+  const resetDesktopLayout = () => {
+    window.localStorage.removeItem(desktopLayoutStorageKey);
+    setIconPositions(getInitialIconPositions());
+    setWidgetRects(getInitialWidgetRects());
+    setWidgetZIndexes({ profile: 1, clock: 2, stats: 3, colors: 4 });
+    widgetZCounterRef.current = 4;
+    setSelectedIds([]);
+    setIsStartOpen(false);
+  };
+
   return (
     <div
       ref={desktopRef}
@@ -742,46 +1217,79 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       )}
 
       <main className="desktop-stage">
-        <div className="desktop-icons" aria-label="Portfolio desktop shortcuts">
-          {desktopItems.map(item => (
+        <div className={`desktop-icons ${!isMobile ? 'desktop-icons-freeform' : ''}`} aria-label="Portfolio desktop shortcuts">
+          {desktopItems.map((item, index) => {
+            const position = iconPositions[item.id] || getDefaultIconPosition(index);
+            const iconStyle = !isMobile ? {
+              left: `${position.x}px`,
+              top: `${position.y}px`,
+            } : undefined;
+
+            return (
             <DesktopIcon
               key={item.id}
               item={item}
               isSelected={selectedIds.includes(item.id)}
               onSelect={(id) => setSelectedIds([id])}
               onOpen={openItem}
+              onPointerDown={handleIconPointerDown}
+              onPointerMove={handleIconPointerMove}
+              onPointerUp={finishIconDrag}
+              onPointerCancel={finishIconDrag}
+              shouldSuppressClick={consumeSuppressedIconClick}
+              style={iconStyle}
+              isFreeform={!isMobile}
             />
-          ))}
+            );
+          })}
         </div>
 
-        <aside className="desktop-widgets" aria-label="Desktop widgets">
-          <section className="desktop-profile-widget glass-widget">
-            <div className="desktop-profile-orb" aria-hidden="true">
-              <span>HH</span>
-            </div>
-            <div>
-              <p className="desktop-kicker">Software Engineer</p>
-              <h1>Hasan Haider</h1>
-              <p>Frontend performance, AI tooling, and cybersecurity with a portfolio built like a tiny operating system.</p>
-            </div>
-          </section>
+        <aside className={`desktop-widgets ${!isMobile ? 'desktop-widgets-freeform' : ''}`} aria-label="Desktop widgets">
+          {widgets.map(widget => {
+            const rect = widgetRects[widget.id] || getDefaultWidgetRects()[widget.id];
+            const widgetStyle = !isMobile && rect ? {
+              left: `${rect.x}px`,
+              top: `${rect.y}px`,
+              width: `${rect.w}px`,
+              height: `${rect.h}px`,
+              zIndex: widgetZIndexes[widget.id] || 1,
+            } : undefined;
 
-          <section className="glass-widget widget-clock">
-            <DualClock />
-          </section>
+            return (
+              <section
+                key={widget.id}
+                className={`glass-widget desktop-widget-panel ${widget.className}`}
+                style={widgetStyle}
+                onPointerDown={(event) => handleWidgetPointerDown(event, widget.id)}
+                onPointerMove={handleWidgetPointerMove}
+                onPointerUp={finishWidgetDrag}
+                onPointerCancel={finishWidgetDrag}
+              >
+                {!isMobile && (
+                  <div className="desktop-widget-grip" aria-hidden="true">
+                    <span>{widgetLabels[widget.id]}</span>
+                  </div>
+                )}
 
-          <section className="glass-widget widget-stats">
-            <SystemStats />
-          </section>
+                <div className="desktop-widget-body">
+                  {widget.content}
+                </div>
 
-          <section className="glass-widget widget-colors">
-            <ColorSwitcher
-              theme={theme}
-              colors={themeColors}
-              onColorsChange={setThemeColors}
-              wheelSize={72}
-            />
-          </section>
+                {!isMobile && widgetResizeEdges.map(edge => (
+                  <span
+                    key={edge}
+                    className={`desktop-widget-resize-handle desktop-widget-resize-${edge}`}
+                    data-edge={edge}
+                    aria-hidden="true"
+                    onPointerDown={(event) => handleWidgetResizePointerDown(event, widget.id)}
+                    onPointerMove={handleWidgetPointerMove}
+                    onPointerUp={finishWidgetDrag}
+                    onPointerCancel={finishWidgetDrag}
+                  />
+                ))}
+              </section>
+            );
+          })}
         </aside>
       </main>
 
@@ -903,6 +1411,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 
           <button type="button" className="taskbar-theme" onClick={toggleTheme}>
             {theme === 'dark' ? 'Dark' : 'Light'}
+          </button>
+
+          <button type="button" className="taskbar-reset" onClick={resetDesktopLayout}>
+            Reset Layout
           </button>
         </div>
 

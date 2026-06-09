@@ -2824,6 +2824,15 @@
        max-height: calc(100vh - 128px);
    }
 
+   .desktop-icons-freeform {
+       position: fixed;
+       inset: 0;
+       z-index: 2;
+       display: block;
+       max-height: none;
+       pointer-events: none;
+   }
+
    .desktop-icon {
        width: 96px;
        height: 96px;
@@ -2841,6 +2850,12 @@
        text-align: center;
        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 0 10px rgba(0, 0, 0, 0.45);
        transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+       touch-action: none;
+   }
+
+   .desktop-icon-freeform {
+       position: fixed;
+       pointer-events: auto;
    }
 
    .desktop-icon:hover,
@@ -2915,6 +2930,15 @@
        align-self: start;
    }
 
+   .desktop-widgets-freeform {
+       position: fixed;
+       inset: 0;
+       z-index: 3;
+       display: block;
+       width: auto;
+       pointer-events: none;
+   }
+
    .glass-widget {
        background:
            linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.07)),
@@ -2929,7 +2953,106 @@
        overflow: hidden;
    }
 
+   .desktop-widget-panel {
+       position: relative;
+   }
+
+   .desktop-widgets-freeform .desktop-widget-panel {
+       position: fixed;
+       display: flex;
+       flex-direction: column;
+       padding: 0;
+       pointer-events: auto;
+       touch-action: none;
+       resize: none;
+   }
+
+   .desktop-widget-grip {
+       height: 22px;
+       padding: 0 9px;
+       border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+       color: rgba(247, 251, 255, 0.86);
+       background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05));
+       cursor: move;
+       display: flex;
+       align-items: center;
+       font-size: 10px;
+       font-weight: 800;
+       letter-spacing: 0.8px;
+       line-height: 1;
+       text-transform: uppercase;
+       text-shadow: 0 1px 3px rgba(0,0,0,0.42);
+       flex-shrink: 0;
+   }
+
+   .desktop-widget-body {
+       min-height: 0;
+       flex: 1;
+       overflow: auto;
+   }
+
+   .desktop-widgets-freeform .desktop-widget-body {
+       overflow: hidden;
+   }
+
+   .desktop-widgets-freeform .widget-clock .desktop-widget-body,
+   .desktop-widgets-freeform .widget-stats .desktop-widget-body {
+       padding: 10px;
+   }
+
+   .desktop-widgets-freeform .widget-colors .desktop-widget-body {
+       padding: 8px;
+   }
+
+   .desktop-widget-resize-handle {
+       position: absolute;
+       z-index: 2;
+       pointer-events: auto;
+       touch-action: none;
+   }
+
+   .desktop-widget-resize-e {
+       top: 22px;
+       right: 0;
+       bottom: 8px;
+       width: 12px;
+       cursor: e-resize;
+   }
+
+   .desktop-widget-resize-s {
+       left: 8px;
+       right: 8px;
+       bottom: 0;
+       height: 12px;
+       cursor: s-resize;
+   }
+
+   .desktop-widget-resize-se {
+       right: 0;
+       bottom: 0;
+       width: 18px;
+       height: 18px;
+       cursor: se-resize;
+   }
+
+   .desktop-widget-resize-se::after {
+       content: '';
+       position: absolute;
+       right: 4px;
+       bottom: 4px;
+       width: 8px;
+       height: 8px;
+       border-right: 2px solid rgba(247, 251, 255, 0.55);
+       border-bottom: 2px solid rgba(247, 251, 255, 0.55);
+       border-radius: 1px;
+   }
+
    .desktop-profile-widget {
+       padding: 0;
+       display: block;
+   }
+
+   .desktop-profile-widget .desktop-widget-body {
        padding: 10px;
        display: grid;
        grid-template-columns: 50px minmax(0, 1fr);
@@ -3615,7 +3738,8 @@
    }
 
    .taskbar-app,
-   .taskbar-theme {
+   .taskbar-theme,
+   .taskbar-reset {
        height: 42px;
        border: 1px solid rgba(255,255,255,0.22);
        border-radius: 5px;
@@ -3645,10 +3769,15 @@
        opacity: 0.78;
    }
 
-   .taskbar-theme {
+   .taskbar-theme,
+   .taskbar-reset {
        padding: 0 14px;
        font-size: 12px;
        font-weight: 700;
+   }
+
+   .taskbar-reset {
+       white-space: nowrap;
    }
 
    .taskbar-clock {
@@ -3747,7 +3876,7 @@
            line-height: 1.1;
        }
 
-       .desktop-profile-widget {
+       .desktop-profile-widget .desktop-widget-body {
            grid-template-columns: 40px minmax(0, 1fr);
            padding: 8px;
        }
@@ -3839,7 +3968,8 @@
            white-space: nowrap;
        }
 
-       .taskbar-theme {
+       .taskbar-theme,
+       .taskbar-reset {
            display: none;
        }
 
