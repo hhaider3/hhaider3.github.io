@@ -18,7 +18,7 @@ const Skills = () => {
             </div>
             <div className="skills-list">
               <span className="skill-pill">Python</span>
-              <span className="skill-pill font-highlight">JavaScript</span>
+              <span className="skill-pill">JavaScript</span>
               <span className="skill-pill">C/C++</span>
               <span className="skill-pill">C#</span>
               <span className="skill-pill">SQL</span>
@@ -33,7 +33,7 @@ const Skills = () => {
               <h3>Frontend</h3>
             </div>
             <div className="skills-list">
-              <span className="skill-pill font-highlight">React</span>
+              <span className="skill-pill">React</span>
               <span className="skill-pill">Tailwind CSS</span>
               <span className="skill-pill">Flowbite</span>
               <span className="skill-pill">Responsive Design</span>
@@ -48,7 +48,7 @@ const Skills = () => {
               <h3>AI Tools</h3>
             </div>
             <div className="skills-list">
-              <span className="skill-pill font-highlight">Google Antigravity</span>
+              <span className="skill-pill">Google Antigravity</span>
               <span className="skill-pill">Gemini</span>
               <span className="skill-pill">OpenAI Codex</span>
               <span className="skill-pill">Cursor</span>
