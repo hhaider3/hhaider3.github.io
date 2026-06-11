@@ -187,6 +187,8 @@ const BrowserWindow = ({
   isMaximized,
   isMobile,
   zIndex,
+  openOrigin,
+  minimizeRequestId,
   onFocus,
   onClose,
   onMinimize,
@@ -198,6 +200,8 @@ const BrowserWindow = ({
   const Content = app.component;
   const [cascadeOffset] = useState(getNextWindowOffset);
   const [isColorPanelOpen, setIsColorPanelOpen] = useState(false);
+  const [isMinimizing, setIsMinimizing] = useState(false);
+  const [minimizeAnimationStyle, setMinimizeAnimationStyle] = useState({});
 
   /* ---- position / size state ---- */
   const [winRect, setWinRect] = useState(() => (
@@ -205,6 +209,14 @@ const BrowserWindow = ({
   ));
   const interactionRef = useRef(null);                    // drag / resize tracking
   const windowRef = useRef(null);
+  const minimizeTimerRef = useRef(null);
+  const lastMinimizeRequestRef = useRef(minimizeRequestId);
+
+  useEffect(() => () => {
+    if (minimizeTimerRef.current) {
+      window.clearTimeout(minimizeTimerRef.current);
+    }
+  }, []);
 
   /* Compute initial centered rect on first drag / resize if still null */
   const resolveRect = useCallback(() => {
@@ -334,10 +346,77 @@ const BrowserWindow = ({
     onToggleMaximize();
   }, [onToggleMaximize]);
 
+  const getMinimizeTargetRect = useCallback(() => {
+    const target = document.querySelector(`[data-taskbar-id="${app.id}"]`) || document.querySelector('.start-orb');
+    if (target) {
+      return target.getBoundingClientRect();
+    }
+
+    return {
+      left: 58,
+      top: window.innerHeight - 46,
+      width: 132,
+      height: 34,
+    };
+  }, [app.id]);
+
+  const handleMinimize = useCallback(() => {
+    if (isMinimizing) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const rect = windowRef.current?.getBoundingClientRect();
+    if (reduceMotion || !rect) {
+      onMinimize();
+      return;
+    }
+
+    const target = getMinimizeTargetRect();
+    const dx = target.left + target.width / 2 - (rect.left + rect.width / 2);
+    const dy = target.top + target.height / 2 - (rect.top + rect.height / 2);
+
+    setMinimizeAnimationStyle({
+      '--window-minimize-dx': `${dx}px`,
+      '--window-minimize-dy': `${dy}px`,
+      '--window-minimize-scale-x': `${Math.max(0.05, Math.min(0.22, target.width / rect.width))}`,
+      '--window-minimize-scale-y': `${Math.max(0.05, Math.min(0.22, target.height / rect.height))}`,
+    });
+    setIsMinimizing(true);
+
+    minimizeTimerRef.current = window.setTimeout(() => {
+      onMinimize();
+    }, 150);
+  }, [getMinimizeTargetRect, isMinimizing, onMinimize]);
+
+  useEffect(() => {
+    if (!minimizeRequestId || minimizeRequestId === lastMinimizeRequestRef.current) {
+      return;
+    }
+
+    lastMinimizeRequestRef.current = minimizeRequestId;
+    handleMinimize();
+  }, [handleMinimize, minimizeRequestId]);
+
   /* ---- style ---- */
   const canInteract = !isMobile;
+  const mobileRect = typeof window !== 'undefined' && isMobile ? {
+    x: 8,
+    y: 8,
+    w: Math.max(1, window.innerWidth - 16),
+    h: Math.max(1, window.innerHeight - 72),
+  } : null;
+  const openingRect = canInteract ? winRect : mobileRect;
+  const openAnimationStyle = openOrigin && openingRect && !isMaximized ? {
+    '--window-open-origin-x': `${openOrigin.centerX - openingRect.x}px`,
+    '--window-open-origin-y': `${openOrigin.centerY - openingRect.y}px`,
+    '--window-open-scale-x': `${Math.max(0.05, Math.min(0.18, openOrigin.width / openingRect.w))}`,
+    '--window-open-scale-y': `${Math.max(0.05, Math.min(0.18, openOrigin.height / openingRect.h))}`,
+  } : {};
   const windowStyle = canInteract ? {
     zIndex: zIndex || 1,
+    ...openAnimationStyle,
+    ...minimizeAnimationStyle,
     ...(!isMaximized && winRect ? {
       top: `${winRect.y}px`,
       left: `${winRect.x}px`,
@@ -345,12 +424,15 @@ const BrowserWindow = ({
       height: `${winRect.h}px`,
       transform: 'none',
     } : {}),
-  } : undefined;
+  } : {
+    ...openAnimationStyle,
+    ...minimizeAnimationStyle,
+  };
 
   return (
     <section
       ref={windowRef}
-      className={`portfolio-window ${isMaximized ? 'maximized' : ''}`}
+      className={`portfolio-window ${isMaximized ? 'maximized' : ''} ${openOrigin && !isMaximized ? 'window-opening' : ''} ${isMinimizing ? 'window-minimizing' : ''}`}
       aria-label={`${app.title} window`}
       style={windowStyle}
       onPointerDown={canInteract ? onFocus : undefined}
@@ -397,7 +479,7 @@ const BrowserWindow = ({
           </button>
 
           <div className="window-controls" aria-label="Window controls">
-            <button type="button" aria-label="Minimize window" onClick={onMinimize}>
+            <button type="button" aria-label="Minimize window" onClick={handleMinimize}>
               <Minus size={14} />
             </button>
             <button type="button" aria-label="Toggle maximize window" onClick={onToggleMaximize}>
@@ -594,6 +676,8 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const [mobileAppId, setMobileAppId] = useState(null);
   const [mobileMaximized, setMobileMaximized] = useState(false);
   const [mobileMinimized, setMobileMinimized] = useState(false);
+  const [mobileOpenOrigin, setMobileOpenOrigin] = useState(null);
+  const [mobileMinimizeRequestId, setMobileMinimizeRequestId] = useState(0);
 
   /* ---- Desktop: multi-window state ---- */
   const [openWindows, setOpenWindows] = useState([]);
@@ -1110,6 +1194,44 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     ));
   }, [nextZ]);
 
+  const getIconOpenOrigin = (itemId) => {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+
+    const icon = document.querySelector(`[data-desktop-id="${itemId}"]`);
+    if (!icon) {
+      return null;
+    }
+
+    const rect = icon.getBoundingClientRect();
+    return {
+      centerX: rect.left + rect.width / 2,
+      centerY: rect.top + rect.height / 2,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
+  const getTaskbarOpenOrigin = useCallback((itemId) => {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+
+    const taskbarButton = document.querySelector(`[data-taskbar-id="${itemId}"]`);
+    if (!taskbarButton) {
+      return null;
+    }
+
+    const rect = taskbarButton.getBoundingClientRect();
+    return {
+      centerX: rect.left + rect.width / 2,
+      centerY: rect.top + rect.height / 2,
+      width: rect.width,
+      height: rect.height,
+    };
+  }, []);
+
   const openItem = (item) => {
     setSelectedIds([item.id]);
     setIsStartOpen(false);
@@ -1124,7 +1246,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       return;
     }
 
+    const openOrigin = getIconOpenOrigin(item.id);
+
     if (isMobile) {
+      setMobileOpenOrigin(openOrigin);
       setMobileAppId(item.id);
       setMobileMinimized(false);
       return;
@@ -1140,7 +1265,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         );
       }
       // open new window
-      return [...prev, { id: item.id, isMaximized: false, isMinimized: false, zIndex: nextZ() }];
+      return [...prev, { id: item.id, isMaximized: false, isMinimized: false, zIndex: nextZ(), openOrigin }];
     });
   };
 
@@ -1150,7 +1275,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 
   const minimizeWindow = useCallback((windowId) => {
     setOpenWindows(prev => prev.map(w =>
-      w.id === windowId ? { ...w, isMinimized: true } : w
+      w.id === windowId ? { ...w, isMinimized: true, openOrigin: null } : w
     ));
   }, []);
 
@@ -1161,6 +1286,8 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   }, []);
 
   const toggleMinimizeFromTaskbar = useCallback((windowId) => {
+    const restoreOrigin = getTaskbarOpenOrigin(windowId);
+
     setOpenWindows(prev => {
       const win = prev.find(w => w.id === windowId);
       if (!win) return prev;
@@ -1168,14 +1295,14 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         // restore and bring to front
         const z = nextZ();
         return prev.map(w =>
-          w.id === windowId ? { ...w, isMinimized: false, zIndex: z } : w
+          w.id === windowId ? { ...w, isMinimized: false, zIndex: z, openOrigin: restoreOrigin } : w
         );
       }
       // check if it's already the topmost — if so, minimize it; otherwise focus it
       const maxZ = Math.max(...prev.map(w => w.zIndex));
       if (win.zIndex === maxZ) {
         return prev.map(w =>
-          w.id === windowId ? { ...w, isMinimized: true } : w
+          w.id === windowId ? { ...w, minimizeRequestId: (w.minimizeRequestId || 0) + 1 } : w
         );
       }
       const z = nextZ();
@@ -1183,7 +1310,18 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         w.id === windowId ? { ...w, zIndex: z } : w
       );
     });
-  }, [nextZ]);
+  }, [getTaskbarOpenOrigin, nextZ]);
+
+  const toggleMobileMinimizeFromTaskbar = () => {
+    if (mobileMinimized && mobileAppId) {
+      setMobileOpenOrigin(getTaskbarOpenOrigin(mobileAppId));
+      setMobileMinimized(false);
+      return;
+    }
+
+    setMobileOpenOrigin(null);
+    setMobileMinimizeRequestId(prev => prev + 1);
+  };
 
   const resetDesktopLayout = () => {
     window.localStorage.removeItem(desktopLayoutStorageKey);
@@ -1192,6 +1330,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     setWidgetZIndexes({ clock: 1, stats: 2, colors: 3 });
     setIsStatsExpanded(false);
     widgetZCounterRef.current = 3;
+    setMobileMinimizeRequestId(0);
     setSelectedIds([]);
     setIsStartOpen(false);
   };
@@ -1242,20 +1381,20 @@ const DesktopShell = ({ theme, toggleTheme }) => {
             } : undefined;
 
             return (
-            <DesktopIcon
-              key={item.id}
-              item={item}
-              isSelected={selectedIds.includes(item.id)}
-              onSelect={(id) => setSelectedIds([id])}
-              onOpen={openItem}
-              onPointerDown={handleIconPointerDown}
-              onPointerMove={handleIconPointerMove}
-              onPointerUp={finishIconDrag}
-              onPointerCancel={finishIconDrag}
-              shouldSuppressClick={consumeSuppressedIconClick}
-              style={iconStyle}
-              isFreeform={!isMobile}
-            />
+              <DesktopIcon
+                key={item.id}
+                item={item}
+                isSelected={selectedIds.includes(item.id)}
+                onSelect={(id) => setSelectedIds([id])}
+                onOpen={openItem}
+                onPointerDown={handleIconPointerDown}
+                onPointerMove={handleIconPointerMove}
+                onPointerUp={finishIconDrag}
+                onPointerCancel={finishIconDrag}
+                shouldSuppressClick={consumeSuppressedIconClick}
+                style={iconStyle}
+                isFreeform={!isMobile}
+              />
             );
           })}
         </div>
@@ -1318,11 +1457,14 @@ const DesktopShell = ({ theme, toggleTheme }) => {
           return (
             <div className="desktop-window-layer">
               <BrowserWindow
+                key={mobileApp.id}
                 app={mobileApp}
                 isMaximized={mobileMaximized}
                 isMobile
-                onClose={() => { setMobileAppId(null); setMobileMinimized(false); setMobileMaximized(false); }}
-                onMinimize={() => setMobileMinimized(true)}
+                openOrigin={mobileOpenOrigin}
+                minimizeRequestId={mobileMinimizeRequestId}
+                onClose={() => { setMobileAppId(null); setMobileMinimized(false); setMobileMaximized(false); setMobileOpenOrigin(null); setMobileMinimizeRequestId(0); }}
+                onMinimize={() => { setMobileOpenOrigin(null); setMobileMinimized(true); }}
                 onToggleMaximize={() => setMobileMaximized(prev => !prev)}
                 theme={theme}
                 themeColors={themeColors}
@@ -1344,6 +1486,8 @@ const DesktopShell = ({ theme, toggleTheme }) => {
                 isMaximized={win.isMaximized}
                 isMobile={false}
                 zIndex={win.zIndex}
+                openOrigin={win.openOrigin}
+                minimizeRequestId={win.minimizeRequestId}
                 onFocus={() => focusWindow(win.id)}
                 onClose={() => closeWindow(win.id)}
                 onMinimize={() => minimizeWindow(win.id)}
@@ -1396,8 +1540,9 @@ const DesktopShell = ({ theme, toggleTheme }) => {
               return (
                 <button
                   type="button"
+                  data-taskbar-id={mobileApp.id}
                   className={`taskbar-app ${mobileMinimized ? 'minimized' : 'active'}`}
-                  onClick={() => setMobileMinimized(prev => !prev)}
+                  onClick={toggleMobileMinimizeFromTaskbar}
                 >
                   <span className={`taskbar-app-icon ${mobileApp.accent}`}>{mobileApp.icon}</span>
                   <span>{mobileApp.title}</span>
@@ -1415,6 +1560,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
                 <button
                   type="button"
                   key={win.id}
+                  data-taskbar-id={win.id}
                   className={`taskbar-app ${win.isMinimized ? 'minimized' : isFocused ? 'active' : ''}`}
                   onClick={() => toggleMinimizeFromTaskbar(win.id)}
                 >
