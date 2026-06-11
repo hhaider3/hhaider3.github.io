@@ -176,14 +176,29 @@ const useMemory = () => {
 /* ─── Network hook ─── */
 const useNetwork = () => {
   const [net, setNet] = useState({ downlink: 0 });
+  const baselineRef = useRef(10);
 
   useEffect(() => {
     const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    if (!conn) return;
-    const update = () => setNet({ downlink: conn.downlink || 0 });
-    update();
-    conn.addEventListener('change', update);
-    return () => conn.removeEventListener('change', update);
+    if (conn && conn.downlink) {
+      baselineRef.current = conn.downlink;
+      const onConnChange = () => {
+        baselineRef.current = conn.downlink || 10;
+      };
+      conn.addEventListener('change', onConnChange);
+    }
+
+    // Simulate realistic fluctuations around the baseline
+    const tick = () => {
+      const base = baselineRef.current;
+      const jitter = (Math.random() - 0.5) * base * 0.4; // ±20% of baseline
+      const spike = Math.random() < 0.08 ? (Math.random() - 0.5) * base * 0.6 : 0;
+      const value = Math.max(0.5, base + jitter + spike);
+      setNet({ downlink: Math.round(value * 10) / 10 });
+    };
+    tick();
+    const id = setInterval(tick, 1500);
+    return () => clearInterval(id);
   }, []);
 
   return net;
