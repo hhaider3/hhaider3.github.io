@@ -2955,9 +2955,9 @@ footer {
 }
 
 .cs-reset {
-    width: calc(100% - 32px);
-    margin: 0 16px 14px;
-    padding: 8px 12px;
+    width: fit-content;
+    margin: 12px auto 14px;
+    padding: 10px 20px;
     font-size: 12px;
     font-weight: 600;
     color: var(--text-muted);
@@ -3017,9 +3017,9 @@ footer {
 }
 
 .color-switcher-inline.compact .cs-reset {
-    width: calc(100% - 24px);
-    margin: 0 12px 10px;
-    padding: 6px 10px;
+    width: fit-content;
+    margin: 10px auto;
+    padding: 8px 16px;
     font-size: 11px;
 }
 
@@ -3610,9 +3610,9 @@ footer {
 }
 
 .desktop-widgets .cs-reset {
-    width: calc(100% - 20px);
-    margin: 0 10px 3px;
-    padding: 3px 10px;
+    width: fit-content;
+    margin: 16px auto 6px;
+    padding: 6px 16px;
     font-size: 10px;
 }
 

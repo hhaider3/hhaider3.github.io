@@ -245,14 +245,14 @@ const ColorSwitcher = ({
           onClick={() => setEditingColor('primary')}
         >
           <span className="cs-tab-swatch" style={{ background: primaryColor }}></span>
-          Primary
+          <span style={{ color: primaryColor }}>Primary</span>
         </button>
         <button
           className={`cs-tab ${editingColor === 'secondary' ? 'active' : ''}`}
           onClick={() => setEditingColor('secondary')}
         >
           <span className="cs-tab-swatch" style={{ background: secondaryColor }}></span>
-          Secondary
+          <span style={{ color: secondaryColor }}>Secondary</span>
         </button>
       </div>
 
@@ -266,7 +266,7 @@ const ColorSwitcher = ({
       </div>
 
       <div className="cs-lightness">
-        <label className="cs-slider-label">Lightness</label>
+        <label className="cs-slider-label" style={{ color: primaryColor }}>Lightness</label>
         <div className="cs-slider-row">
           <input
             type="range"
