@@ -16,6 +16,7 @@ import {
   Minus,
   Palette,
   Power,
+  RadioTower,
   RotateCw,
   User,
   Wrench,
@@ -36,6 +37,7 @@ import { WALLPAPER_COLOR_DEFAULTS } from '../constants/colors';
 import wallpaper from '../assets/win7-portfolio-wallpaper.png';
 
 const GlobeViewer = lazy(() => import('./GlobeViewer'));
+const MotionLab = lazy(() => import('./MotionLab'));
 
 const linkedInUrl = 'https://www.linkedin.com/in/hasan-haider-52026a67/';
 const colorStorageKey = 'portfolioThemeColors';
@@ -638,7 +640,8 @@ const desktopIconOrder = [
   'cv',
   'github',
   'linkedin',
-  'globe'
+  'globe',
+  'motion'
 ];
 
 const getInitialIconPositions = () => {
@@ -801,6 +804,13 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       component: GlobeViewer,
       icon: <Globe size={28} />,
       accent: 'accent-cyan'
+    },
+    {
+      id: 'motion',
+      title: 'Motion Lab',
+      component: MotionLab,
+      icon: <RadioTower size={28} />,
+      accent: 'accent-blue'
     }
   ], []);
 

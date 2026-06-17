@@ -4561,3 +4561,477 @@ footer {
         font-size: 11px;
     }
 }
+
+/* ==========================================================================
+   MOTION LAB
+   ========================================================================== */
+.motion-lab {
+    min-height: 100%;
+    height: 100%;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: minmax(270px, 320px) minmax(360px, 1fr) minmax(280px, 340px);
+    gap: 12px;
+    background:
+        radial-gradient(circle at 38% 22%, rgba(25, 184, 255, 0.2), transparent 32%),
+        radial-gradient(circle at 72% 70%, rgba(244, 114, 182, 0.16), transparent 26%),
+        linear-gradient(145deg, #050912 0%, #101827 47%, #07151b 100%);
+    color: rgba(240, 246, 255, 0.82);
+    overflow: hidden;
+}
+
+.motion-host-panel,
+.motion-viewport-panel {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid rgba(159, 214, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(7, 15, 28, 0.74);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 40px rgba(0, 0, 0, 0.26);
+}
+
+.motion-host-panel {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+}
+
+.motion-panel-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.motion-heading-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(25, 184, 255, 0.96), rgba(20, 214, 180, 0.86));
+    color: #03101a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.motion-panel-heading h2 {
+    margin: 0;
+    color: #f7fbff;
+    font-size: 18px;
+    line-height: 1.1;
+}
+
+.motion-panel-heading p {
+    margin: 2px 0 0;
+    color: rgba(224, 236, 247, 0.62);
+    font-size: 12px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.motion-qr {
+    width: min(100%, 236px);
+    aspect-ratio: 1;
+    align-self: center;
+    border-radius: 8px;
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.32);
+}
+
+.motion-qr-fallback {
+    width: min(100%, 236px);
+    aspect-ratio: 1;
+    align-self: center;
+    border: 1px dashed rgba(255, 255, 255, 0.24);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.motion-url-box {
+    min-height: 40px;
+    padding: 9px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.055);
+    color: rgba(242, 247, 255, 0.84);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    line-height: 1.25;
+}
+
+.motion-url-box svg {
+    flex-shrink: 0;
+    color: #14d6b4;
+}
+
+.motion-url-box span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.motion-pair-actions,
+.motion-phone-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.motion-axis-control {
+    min-height: 36px;
+    padding: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+}
+
+.motion-axis-control button {
+    min-width: 0;
+    min-height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(232, 243, 255, 0.68);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.motion-axis-control button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f7fbff;
+}
+
+.motion-axis-control button.active {
+    background: linear-gradient(135deg, #19b8ff, #14d6b4);
+    color: #03101a;
+}
+
+.motion-primary-button,
+.motion-secondary-button {
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #f8fbff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.motion-primary-button {
+    background: linear-gradient(135deg, #19b8ff, #14d6b4);
+    color: #04131c;
+}
+
+.motion-secondary-button {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.motion-primary-button:hover,
+.motion-secondary-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.motion-primary-button:disabled,
+.motion-secondary-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+    transform: none;
+}
+
+.motion-context-list {
+    display: grid;
+    gap: 7px;
+    margin-top: auto;
+}
+
+.motion-context-list span {
+    min-height: 28px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(228, 237, 248, 0.72);
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.motion-context-list .ok {
+    color: #9bf2cf;
+}
+
+.motion-context-list .warn {
+    color: #ffd166;
+}
+
+.motion-viewport-panel {
+    position: relative;
+    overflow: hidden;
+}
+
+.motion-scene {
+    position: absolute;
+    inset: 0;
+}
+
+.motion-scene canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.motion-scene-overlay {
+    position: absolute;
+    inset: 12px;
+    pointer-events: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.motion-live-status,
+.motion-scene-readout {
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(3, 8, 16, 0.64);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.motion-live-status {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    column-gap: 8px;
+}
+
+.motion-live-status strong {
+    color: #f7fbff;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.motion-live-status small {
+    grid-column: 2;
+    color: rgba(225, 236, 248, 0.58);
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.motion-live-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #7c8795;
+    box-shadow: 0 0 0 rgba(124, 135, 149, 0);
+}
+
+.motion-live-dot.live {
+    background: #34d399;
+    box-shadow: 0 0 18px rgba(52, 211, 153, 0.9);
+}
+
+.motion-scene-readout {
+    color: rgba(245, 250, 255, 0.78);
+    display: grid;
+    gap: 2px;
+    font-size: 11px;
+    text-align: right;
+}
+
+.motion-data-panel {
+    overflow: auto;
+}
+
+.motion-telemetry-grid,
+.motion-phone-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.motion-telemetry-tile {
+    min-height: 84px;
+    padding: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(25, 184, 255, 0.11), rgba(244, 114, 182, 0.06)),
+        rgba(255, 255, 255, 0.045);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 4px 8px;
+}
+
+.motion-tile-icon {
+    width: 25px;
+    height: 25px;
+    border-radius: 7px;
+    color: #07111d;
+    background: #ffd166;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.motion-tile-label {
+    align-self: center;
+    color: rgba(225, 236, 248, 0.6);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.motion-telemetry-tile strong {
+    grid-column: 1 / -1;
+    color: #f7fbff;
+    font-size: 15px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.motion-telemetry-tile small {
+    grid-column: 1 / -1;
+    color: rgba(225, 236, 248, 0.56);
+    font-size: 11px;
+    line-height: 1.25;
+}
+
+.motion-phone-page {
+    min-height: 100vh;
+    padding: 18px;
+    background:
+        radial-gradient(circle at 20% 12%, rgba(25, 184, 255, 0.18), transparent 32%),
+        radial-gradient(circle at 82% 72%, rgba(255, 209, 102, 0.14), transparent 28%),
+        #050912;
+    color: rgba(242, 247, 255, 0.86);
+    display: grid;
+    place-items: center;
+}
+
+.motion-phone-shell {
+    width: min(100%, 440px);
+    padding: 16px;
+    border: 1px solid rgba(159, 214, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(7, 15, 28, 0.78);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+    display: grid;
+    gap: 12px;
+}
+
+.motion-phone-status {
+    justify-self: start;
+    min-height: 28px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(242, 247, 255, 0.78);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.motion-phone-hero {
+    display: grid;
+    gap: 4px;
+    place-items: center;
+    text-align: center;
+}
+
+.motion-phone-hero svg {
+    color: #19b8ff;
+    filter: drop-shadow(0 0 14px rgba(25, 184, 255, 0.54));
+}
+
+.motion-phone-hero h1 {
+    margin: 4px 0 0;
+    color: #f7fbff;
+    font-size: 28px;
+}
+
+.motion-phone-hero p {
+    margin: 0;
+    color: rgba(225, 236, 248, 0.62);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.motion-phone-alert {
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 209, 102, 0.22);
+    border-radius: 8px;
+    background: rgba(255, 209, 102, 0.08);
+    color: #ffe0a0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.motion-phone-alert svg {
+    flex-shrink: 0;
+}
+
+@media (max-width: 1120px) {
+    .motion-lab {
+        grid-template-columns: minmax(260px, 300px) minmax(360px, 1fr);
+        grid-template-rows: minmax(380px, 1fr) auto;
+    }
+
+    .motion-data-panel {
+        grid-column: 1 / -1;
+    }
+
+    .motion-telemetry-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .motion-lab {
+        height: auto;
+        min-height: 100%;
+        grid-template-columns: 1fr;
+        overflow: auto;
+    }
+
+    .motion-viewport-panel {
+        min-height: 420px;
+    }
+
+    .motion-telemetry-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .motion-scene-overlay {
+        inset: 8px;
+    }
+
+    .motion-phone-page {
+        padding: 10px;
+    }
+}
