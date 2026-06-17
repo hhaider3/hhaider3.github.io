@@ -54,10 +54,12 @@ const getSearchParams = () => new URLSearchParams(window.location.search);
 
 const getPhoneSessionId = () => {
   const pathSession = window.location.pathname.match(/^\/motion-phone\/([^/]+)\/?$/)?.[1];
+  const hashSession = window.location.hash.match(/^#\/motion-phone\/([^?/#]+)\/?/)?.[1];
   const params = getSearchParams();
 
   return (
     (pathSession ? decodeURIComponent(pathSession) : '')
+    || (hashSession ? decodeURIComponent(hashSession) : '')
     || params.get('s')
     || params.get('session')
     || ''
@@ -65,8 +67,10 @@ const getPhoneSessionId = () => {
 };
 
 const createPhoneUrl = (origin, sessionId) => {
-  const phoneUrl = new URL(`/motion-phone/${encodeURIComponent(sessionId)}`, origin);
+  const phoneUrl = new URL('/', origin);
   phoneUrl.searchParams.set('m', 'p');
+  phoneUrl.searchParams.set('s', sessionId);
+  phoneUrl.hash = `/motion-phone/${encodeURIComponent(sessionId)}`;
   return phoneUrl.toString();
 };
 
@@ -702,15 +706,17 @@ const MotionLab = () => {
       .then(response => response.ok ? response.json() : Promise.reject(new Error('Relay config unavailable')))
       .then(payload => {
         if (!ignore) {
-          setConfig(payload);
+          setConfig({ ...payload, relayAvailable: true });
         }
       })
       .catch(() => {
         if (!ignore) {
+          setRelayStatus('unavailable');
           setConfig({
             preferredOrigin: window.location.origin,
             localOrigin: window.location.origin,
             lanOrigins: [],
+            relayAvailable: false,
             secure: window.isSecureContext,
           });
         }
@@ -727,6 +733,10 @@ const MotionLab = () => {
   }, []);
 
   useEffect(() => {
+    if (!config || config.relayAvailable === false) {
+      return undefined;
+    }
+
     const eventSource = new EventSource(`/api/motion/events?s=${encodeURIComponent(sessionId)}`);
 
     eventSource.onopen = () => setRelayStatus('ready');
@@ -743,7 +753,7 @@ const MotionLab = () => {
     });
 
     return () => eventSource.close();
-  }, [sessionId]);
+  }, [config, sessionId]);
 
   const preferredOrigin = config?.preferredOrigin || window.location.origin;
   const phoneUrl = useMemo(() => createPhoneUrl(preferredOrigin, sessionId), [preferredOrigin, sessionId]);
@@ -755,6 +765,7 @@ const MotionLab = () => {
   const accelerationWithGravity = motion.accelerationIncludingGravity;
   const rotationRate = motion.rotationRate;
   const secureOrigin = config?.secure || window.isSecureContext;
+  const isRelayAvailable = config?.relayAvailable !== false;
 
   const resetSession = () => {
     setRelayStatus('connecting');
@@ -816,6 +827,9 @@ const MotionLab = () => {
             {secureOrigin ? 'Trusted origin' : 'HTTPS needed for phone sensors'}
           </span>
           <span>{config?.lanOrigins?.[0] ? 'LAN address detected' : 'Using current origin'}</span>
+          <span className={isRelayAvailable ? 'ok' : 'warn'}>
+            {isRelayAvailable ? 'Local relay ready' : 'Relay unavailable on static hosting'}
+          </span>
         </div>
       </div>
 
@@ -829,7 +843,7 @@ const MotionLab = () => {
         <div className="motion-scene-overlay">
           <div className="motion-live-status">
             <span className={`motion-live-dot ${isLive ? 'live' : ''}`} />
-            <strong>{isLive ? 'Live' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</strong>
+            <strong>{isLive ? 'Live' : relayStatus === 'unavailable' ? 'No relay' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</strong>
             <small>{Number.isFinite(packetAge) ? `${Math.round(packetAge)} ms ago` : relayStatus}</small>
           </div>
           <div className="motion-scene-readout">

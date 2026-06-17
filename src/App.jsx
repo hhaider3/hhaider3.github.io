@@ -19,9 +19,12 @@ function App() {
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   const searchParams = new URLSearchParams(window.location.search);
+  const hashPath = window.location.hash.replace(/^#/, '');
   const isPhoneSensorClient = (
     window.location.pathname === '/motion-phone'
     || window.location.pathname.startsWith('/motion-phone/')
+    || hashPath === '/motion-phone'
+    || hashPath.startsWith('/motion-phone/')
     || searchParams.get('m') === 'p'
     || searchParams.get('motion') === 'phone'
   );
