@@ -859,33 +859,78 @@ const GlobeViewer = () => {
       setSelectedZone(zone);
     };
 
+    const activePointers = [];
+
     const handlePointerDown = (event) => {
       stopAutoRotate();
-      control.dragging = true;
-      control.pointerMoved = false;
-      control.lastX = event.clientX;
-      control.lastY = event.clientY;
+      activePointers.push({ id: event.pointerId, x: event.clientX, y: event.clientY });
+
+      if (activePointers.length === 1) {
+        control.dragging = true;
+        control.pointerMoved = false;
+        control.lastX = event.clientX;
+        control.lastY = event.clientY;
+      } else if (activePointers.length === 2) {
+        control.dragging = false;
+        control.pointerMoved = true; // prevent click on release
+        const dx = activePointers[0].x - activePointers[1].x;
+        const dy = activePointers[0].y - activePointers[1].y;
+        control.lastPinchDist = Math.hypot(dx, dy);
+      }
+
       renderer.domElement.style.cursor = 'grabbing';
       renderer.domElement.setPointerCapture(event.pointerId);
     };
 
     const handlePointerMove = (event) => {
-      if (!control.dragging) return;
+      const idx = activePointers.findIndex(p => p.id === event.pointerId);
+      if (idx !== -1) {
+        activePointers[idx].x = event.clientX;
+        activePointers[idx].y = event.clientY;
+      }
 
-      const dx = event.clientX - control.lastX;
-      const dy = event.clientY - control.lastY;
-      if (Math.abs(dx) + Math.abs(dy) > 4) control.pointerMoved = true;
+      if (activePointers.length === 1 && control.dragging) {
+        const dx = event.clientX - control.lastX;
+        const dy = event.clientY - control.lastY;
+        if (Math.abs(dx) + Math.abs(dy) > 4) control.pointerMoved = true;
 
-      control.targetYaw -= dx * 0.006;
-      control.targetPitch = clamp(control.targetPitch + dy * 0.006, -1.15, 1.15);
-      control.lastX = event.clientX;
-      control.lastY = event.clientY;
+        control.targetYaw -= dx * 0.006;
+        control.targetPitch = clamp(control.targetPitch + dy * 0.006, -1.15, 1.15);
+        control.lastX = event.clientX;
+        control.lastY = event.clientY;
+      } else if (activePointers.length === 2) {
+        const dx = activePointers[0].x - activePointers[1].x;
+        const dy = activePointers[0].y - activePointers[1].y;
+        const dist = Math.hypot(dx, dy);
+
+        if (control.lastPinchDist) {
+          const delta = control.lastPinchDist - dist;
+          control.targetDistance = clamp(control.targetDistance + delta * 0.02, 4.2, 12);
+        }
+        control.lastPinchDist = dist;
+      }
     };
 
     const handlePointerUp = (event) => {
-      const wasClick = control.dragging && !control.pointerMoved;
-      control.dragging = false;
-      renderer.domElement.style.cursor = 'grab';
+      const idx = activePointers.findIndex(p => p.id === event.pointerId);
+      if (idx !== -1) {
+        activePointers.splice(idx, 1);
+      }
+
+      const wasClick = control.dragging && !control.pointerMoved && activePointers.length === 0;
+
+      if (activePointers.length === 0) {
+        control.dragging = false;
+        control.lastPinchDist = null;
+        renderer.domElement.style.cursor = 'grab';
+      } else if (activePointers.length === 1) {
+        // Fall back to rotating if one finger stays down
+        control.dragging = true;
+        control.lastX = activePointers[0].x;
+        control.lastY = activePointers[0].y;
+        control.lastPinchDist = null;
+      }
+
       if (renderer.domElement.hasPointerCapture(event.pointerId)) {
         renderer.domElement.releasePointerCapture(event.pointerId);
       }
