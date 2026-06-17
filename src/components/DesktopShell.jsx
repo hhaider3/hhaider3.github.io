@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   Briefcase,
   FileText,
   Folder,
+  Globe,
   Home,
   Info,
   Mail,
@@ -33,6 +34,8 @@ import ColorSwitcher from './ColorSwitcher';
 import SystemStats from './SystemStats';
 import { WALLPAPER_COLOR_DEFAULTS } from '../constants/colors';
 import wallpaper from '../assets/win7-portfolio-wallpaper.png';
+
+const GlobeViewer = lazy(() => import('./GlobeViewer'));
 
 const linkedInUrl = 'https://www.linkedin.com/in/hasan-haider-52026a67/';
 const colorStorageKey = 'portfolioThemeColors';
@@ -519,7 +522,9 @@ const BrowserWindow = ({
       </div>
 
       <div className="window-content">
-        <Content />
+        <Suspense fallback={<div style={{ padding: '24px' }}>Loading...</div>}>
+          <Content />
+        </Suspense>
       </div>
     </section>
   );
@@ -633,7 +638,7 @@ const desktopIconOrder = [
   'cv',
   'github',
   'linkedin',
-  'email'
+  'globe'
 ];
 
 const getInitialIconPositions = () => {
@@ -789,6 +794,13 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       component: ResumeViewer,
       icon: <FileText size={28} />,
       accent: 'accent-red'
+    },
+    {
+      id: 'globe',
+      title: '3D Globe',
+      component: GlobeViewer,
+      icon: <Globe size={28} />,
+      accent: 'accent-cyan'
     }
   ], []);
 
@@ -806,13 +818,6 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       href: linkedInUrl,
       icon: <FaLinkedin size={28} />,
       accent: 'accent-linkedin'
-    },
-    {
-      id: 'email',
-      title: 'Email',
-      href: 'mailto:hasanhaider009@gmail.com',
-      icon: <Mail size={28} />,
-      accent: 'accent-cyan'
     }
   ], []);
 
