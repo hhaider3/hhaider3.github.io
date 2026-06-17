@@ -343,7 +343,7 @@ const getTimeInfo = (tz) => {
 };
 
 // ---------------------------------------------------------------------------
-// Timezone info popup (pure React, rendered outside the canvas)
+// Timezone info popup — styled to match the Win7 Aero windows in the portfolio
 // ---------------------------------------------------------------------------
 const TimezoneCard = ({ zone, onClose }) => {
   const [info, setInfo] = useState(() => getTimeInfo(zone));
@@ -358,66 +358,109 @@ const TimezoneCard = ({ zone, onClose }) => {
 
   return (
     <div style={{
-      position: 'absolute', bottom: '18px', left: '50%',
+      position: 'absolute',
+      bottom: '14px',
+      left: '50%',
       transform: 'translateX(-50%)',
-      background: 'rgba(2, 8, 26, 0.82)',
-      backdropFilter: 'blur(24px)',
-      WebkitBackdropFilter: 'blur(24px)',
-      border: '1px solid rgba(168, 237, 255, 0.18)',
-      borderRadius: '18px',
-      padding: '18px 26px 16px',
-      color: '#f0f9ff',
-      minWidth: '260px',
-      maxWidth: '340px',
-      boxShadow: '0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(168,237,255,0.07), inset 0 1px 0 rgba(255,255,255,0.05)',
+      // Win7 Aero window look
+      border: '1px solid rgba(255,255,255,0.42)',
+      borderRadius: '8px',
+      background: 'linear-gradient(180deg, rgba(210,234,255,0.34), rgba(47,116,173,0.18) 38px, rgba(245,249,255,0.97) 38px), rgba(235,243,250,0.97)',
+      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 18px 48px rgba(0,0,0,0.48)',
+      width: 'min(320px, calc(100vw - 24px))',
       zIndex: 20,
       fontFamily: 'inherit',
       userSelect: 'none',
       pointerEvents: 'none',
-      animation: 'tzFadeIn 0.22s ease',
+      overflow: 'hidden',
+      animation: 'tzFadeIn 0.18s ease',
     }}>
-      <style>{`@keyframes tzFadeIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        style={{
-          position: 'absolute', top: '10px', right: '12px',
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(148,163,184,0.7)', fontSize: '18px', lineHeight: 1,
-          padding: '2px 6px', borderRadius: '6px',
-          transition: 'color 0.15s',
-          pointerEvents: 'auto',  // re-enable: parent is pointer-events:none
-        }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#f0f9ff'; }}
-        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(148,163,184,0.7)'; }}
-      >✕</button>
+      <style>{`
+        @keyframes tzFadeIn{from{opacity:0;transform:translateX(-50%) translateY(6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+        .tz-close-btn:hover{background:linear-gradient(180deg,#ffb59f,#e65b3e 56%,#a5251c)!important}
+        @media(max-width:480px){.tz-body{padding:10px 14px 12px!important}.tz-time{font-size:32px!important}.tz-city{font-size:16px!important}.tz-meta{font-size:10px!important}}
+      `}</style>
 
-      {/* Region + zone id */}
-      <div style={{ fontSize: '10px', color: 'rgba(168,237,255,0.55)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '3px', paddingRight: '20px' }}>
-        {region}{region && ' · '}{zone}
-      </div>
+      {/* Win7-style inset glow */}
+      <div style={{ position: 'absolute', inset: '1px', borderRadius: 'inherit', pointerEvents: 'none', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.28)' }} aria-hidden="true" />
 
-      {/* City name */}
-      <div style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '8px', color: '#e2f4ff' }}>
-        {city}
-      </div>
-
-      {/* Big time */}
+      {/* Titlebar — same gradient as .window-titlebar */}
       <div style={{
-        fontSize: '44px', fontWeight: 200, letterSpacing: '-0.03em',
-        fontVariantNumeric: 'tabular-nums', color: '#a8edff',
-        lineHeight: 1, marginBottom: '6px',
+        minHeight: '32px',
+        padding: '5px 6px 5px 10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        color: '#0e2337',
+        textShadow: '0 1px 0 rgba(255,255,255,0.55)',
+        flexShrink: 0,
       }}>
-        {info.time}
+        {/* Icon + title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, minWidth: 0, overflow: 'hidden' }}>
+          {/* Globe favicon tile */}
+          <span style={{
+            width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
+            background: 'linear-gradient(135deg,#0ea5e9,#0284c7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+          }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12a15.3 15.3 0 0 1 4-10z" />
+            </svg>
+          </span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {city}{region && region !== city ? ` — ${region}` : ''}
+          </span>
+        </div>
+
+        {/* Win7-style close button */}
+        <button
+          className="tz-close-btn"
+          onClick={onClose}
+          style={{
+            width: '40px', height: '20px',
+            border: 0, borderRadius: '0 0 4px 4px',
+            cursor: 'pointer',
+            color: '#fff',
+            background: 'linear-gradient(180deg,#e99b86,#c9452e 56%,#8b1e17)',
+            textShadow: '0 1px 1px rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '13px', lineHeight: 1, flexShrink: 0,
+            pointerEvents: 'auto',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3)',
+            transition: 'background 0.1s',
+          }}
+          aria-label="Close timezone card"
+        >✕</button>
       </div>
 
-      {/* Date + offset */}
-      <div style={{ fontSize: '12px', color: 'rgba(148,163,184,0.75)', display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <span>{info.date}</span>
-        {info.offset && <>
-          <span style={{ color: 'rgba(168,237,255,0.3)' }}>·</span>
-          <span style={{ color: 'rgba(168,237,255,0.7)', fontWeight: 500 }}>{info.offset}</span>
-        </>}
+      {/* Body */}
+      <div className="tz-body" style={{
+        padding: '12px 18px 16px',
+        borderTop: '1px solid rgba(100,150,200,0.22)',
+        background: 'transparent',
+      }}>
+        {/* Tiny zone ID */}
+        <div className="tz-meta" style={{ fontSize: '11px', color: 'rgba(30,60,100,0.5)', marginBottom: '4px', letterSpacing: '0.04em' }}>
+          {zone}
+        </div>
+
+        {/* Big time */}
+        <div className="tz-time" style={{
+          fontSize: '40px', fontWeight: 200, letterSpacing: '-0.03em',
+          fontVariantNumeric: 'tabular-nums',
+          color: '#0b3a5e',
+          lineHeight: 1, marginBottom: '4px',
+        }}>
+          {info.time}
+        </div>
+
+        {/* Date + UTC offset */}
+        <div className="tz-city" style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '18px', fontWeight: 600, color: '#0e2a44' }}>{info.date}</span>
+          {info.offset && (
+            <span style={{ fontSize: '12px', color: 'rgba(30,80,140,0.65)', fontWeight: 500 }}>{info.offset}</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -552,7 +595,7 @@ const atmosphereFragmentShader = `
 
 const GlobeViewer = () => {
   const mountRef = useRef(null);
-  const clearSelectedZoneRef = useRef(() => {});
+  const clearSelectedZoneRef = useRef(() => { });
   const [selectedZone, setSelectedZone] = useState(null);
 
   useEffect(() => {
@@ -899,7 +942,7 @@ const GlobeViewer = () => {
       renderer.domElement.removeEventListener('pointerup', handlePointerUp);
       renderer.domElement.removeEventListener('pointercancel', handlePointerUp);
       renderer.domElement.removeEventListener('wheel', handleWheel);
-      clearSelectedZoneRef.current = () => {};
+      clearSelectedZoneRef.current = () => { };
       earthGeometry.dispose();
       earthMaterial.dispose();
       atmosphereGeometry.dispose();
