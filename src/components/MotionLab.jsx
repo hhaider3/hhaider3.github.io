@@ -1082,6 +1082,7 @@ const MotionLab = () => {
   const [axisMode, setAxisMode] = useState('long');
   const [isAxisFlipped, setIsAxisFlipped] = useState(false);
   const [isStreamExpanded, setIsStreamExpanded] = useState(false);
+  const [isPairPanelExpanded, setIsPairPanelExpanded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const arrivalTimesRef = useRef([]);
 
@@ -1161,7 +1162,7 @@ const MotionLab = () => {
   const rotationRate = motion.rotationRate;
   const secureOrigin = config?.secure || window.isSecureContext;
   const isRelayAvailable = config?.relayAvailable !== false;
-  const showPairPanel = !isLive;
+  const showPairPanel = !isLive || isPairPanelExpanded;
   const labClassName = [
     'motion-lab',
     showPairPanel ? '' : 'pair-hidden',
@@ -1175,13 +1176,14 @@ const MotionLab = () => {
     setPacketCount(0);
     setPacketRate(0);
     setIsStreamExpanded(false);
+    setIsPairPanelExpanded(false);
     arrivalTimesRef.current = [];
   };
 
   return (
     <section className={labClassName}>
       {showPairPanel && (
-        <div className="motion-host-panel motion-pair-panel">
+        <div className="motion-host-panel motion-pair-panel" id="motion-pair-panel">
           <div className="motion-panel-heading">
             <span className="motion-heading-icon"><Smartphone size={20} /></span>
             <div>
@@ -1251,6 +1253,18 @@ const MotionLab = () => {
             <small>{Number.isFinite(packetAge) ? `${Math.round(packetAge)} ms ago` : relayStatus}</small>
           </div>
           <div className="motion-scene-actions">
+            {isLive && (
+              <button
+                type="button"
+                className={`motion-overlay-button ${isPairPanelExpanded ? 'active' : ''}`}
+                onClick={() => setIsPairPanelExpanded(expanded => !expanded)}
+                aria-controls="motion-pair-panel"
+                aria-expanded={showPairPanel}
+              >
+                <Smartphone size={15} />
+                {isPairPanelExpanded ? 'Hide QR' : 'Show QR'}
+              </button>
+            )}
             <button
               type="button"
               className={`motion-overlay-button ${isStreamExpanded ? 'active' : ''}`}
