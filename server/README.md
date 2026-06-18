@@ -29,18 +29,18 @@ Recommended environment:
 
 ```text
 PORT=8787
-PUBLIC_RELAY_ORIGIN=https://your-relay.example.com
+PUBLIC_RELAY_ORIGIN=https://motion-lab-relay.onrender.com
 MOTION_ALLOWED_ORIGINS=https://hhaider3.github.io,https://localhost:5174,http://localhost:5174
 ```
 
-Then build/deploy the GitHub Pages frontend with:
+Then build/deploy the GitHub Pages frontend with the same relay URL:
 
 ```bash
-VITE_MOTION_RELAY_URL=https://your-relay.example.com npm run deploy
+VITE_MOTION_RELAY_URL=https://motion-lab-relay.onrender.com npm run deploy
 ```
 
 You can also test without rebuilding by opening the hosted site with:
 
 ```text
-https://hhaider3.github.io/?relay=https%3A%2F%2Fyour-relay.example.com
+https://hhaider3.github.io/?relay=https%3A%2F%2Fmotion-lab-relay.onrender.com
 ```

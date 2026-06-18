@@ -17,7 +17,8 @@ import { createQrPath } from '../utils/qrCode';
 
 const publishEndpoint = '/api/motion/publish';
 const configEndpoint = '/api/motion/config';
-const configuredRelayUrl = import.meta.env.VITE_MOTION_RELAY_URL || '';
+const defaultRelayUrl = 'https://motion-lab-relay.onrender.com';
+const configuredRelayUrl = import.meta.env.VITE_MOTION_RELAY_URL || defaultRelayUrl;
 
 const createApiUrl = (origin, endpoint) => new URL(endpoint, origin).toString();
 
@@ -538,7 +539,7 @@ export const PhoneSensorClient = () => {
 
     if (relayCheck !== 'ready') {
       setStatus('relay-error');
-      setStatusDetail('No live relay is available here. GitHub Pages can open this sender, but it cannot receive sensor data.');
+      setStatusDetail(`No live relay is reachable at ${relayOrigin}.`);
       return;
     }
 
@@ -711,7 +712,11 @@ export const PhoneSensorClient = () => {
         {relayUnavailable && (
           <div className="motion-phone-alert">
             <AlertTriangle size={18} />
-            <span>GitHub Pages is static, so it cannot receive sensor packets. Use the local HTTPS QR or add a live relay backend.</span>
+            <span>
+              {relayOrigin === window.location.origin
+                ? 'This page needs a motion relay before it can send sensor packets.'
+                : `Motion relay is not reachable at ${relayOrigin}.`}
+            </span>
           </div>
         )}
 
