@@ -267,7 +267,7 @@ const setQuaternionFromDevice = (() => {
   };
 })();
 
-const PhoneStickScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
+const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
   const mountRef = useRef(null);
   const packetRef = useRef(packet);
   const axisModeRef = useRef(axisMode);
@@ -316,47 +316,182 @@ const PhoneStickScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     roseLight.position.set(-2.7, -0.8, 2.2);
     scene.add(ambient, keyLight, roseLight);
 
+    const geometries = [];
+    const materials = [];
+    const trackGeometry = (geometry) => {
+      geometries.push(geometry);
+      return geometry;
+    };
+    const trackMaterial = (material) => {
+      materials.push(material);
+      return material;
+    };
+
     const rig = new THREE.Group();
-    const bodyMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x0b1724,
-      metalness: 0.38,
-      roughness: 0.28,
-      emissive: 0x0d9bd7,
-      emissiveIntensity: 0.52,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.24,
-    });
-    const glowMaterial = new THREE.MeshBasicMaterial({
+    const sword = new THREE.Group();
+    const bladeBaseZ = 0.48;
+    const bladeLength = 2.7;
+    const tipLength = 0.38;
+
+    const bladeMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
+      color: 0xbffcff,
+      metalness: 0.18,
+      roughness: 0.16,
+      emissive: 0x20e7ff,
+      emissiveIntensity: 1.35,
+      clearcoat: 1,
+      clearcoatRoughness: 0.12,
+    }));
+    const bladeGlowMaterial = trackMaterial(new THREE.MeshBasicMaterial({
       color: 0x18d7ff,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.22,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-    });
-    const endMaterial = new THREE.MeshBasicMaterial({
+    }));
+    const hiltMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
+      color: 0x091220,
+      metalness: 0.64,
+      roughness: 0.24,
+      emissive: 0x072a47,
+      emissiveIntensity: 0.48,
+      clearcoat: 0.72,
+      clearcoatRoughness: 0.2,
+    }));
+    const guardMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
+      color: 0xffd166,
+      metalness: 0.5,
+      roughness: 0.22,
+      emissive: 0xff5ea8,
+      emissiveIntensity: 0.45,
+      clearcoat: 0.82,
+      clearcoatRoughness: 0.18,
+    }));
+    const accentMaterial = trackMaterial(new THREE.MeshBasicMaterial({
+      color: 0x19b8ff,
+      transparent: true,
+      opacity: 0.78,
+      blending: THREE.AdditiveBlending,
+    }));
+    const hiltGlowMaterial = trackMaterial(new THREE.MeshBasicMaterial({
       color: 0xff5ea8,
       transparent: true,
-      opacity: 0.86,
+      opacity: 0.2,
       blending: THREE.AdditiveBlending,
-    });
+      depthWrite: false,
+    }));
+    const phoneMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
+      color: 0x07111d,
+      metalness: 0.34,
+      roughness: 0.3,
+      emissive: 0x0d9bd7,
+      emissiveIntensity: 0.22,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.16,
+    }));
+    const edgeMaterial = trackMaterial(new THREE.LineBasicMaterial({
+      color: 0x7ce8ff,
+      transparent: true,
+      opacity: 0.82,
+    }));
 
-    const model = new THREE.Group();
-    const bodyGeometry = new THREE.BoxGeometry(0.46, 0.16, 2.52, 2, 1, 8);
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    const glow = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.24, 2.76, 2, 1, 8), glowMaterial);
-    const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(bodyGeometry),
-      new THREE.LineBasicMaterial({ color: 0x7ce8ff, transparent: true, opacity: 0.8 })
+    const bladeGeometry = trackGeometry(new THREE.CylinderGeometry(0.055, 0.12, bladeLength, 4, 1));
+    const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
+    blade.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+    blade.position.z = bladeBaseZ + bladeLength / 2;
+
+    const bladeGlow = new THREE.Mesh(
+      trackGeometry(new THREE.CylinderGeometry(0.14, 0.22, bladeLength + 0.12, 4, 1)),
+      bladeGlowMaterial
+    );
+    bladeGlow.rotation.copy(blade.rotation);
+    bladeGlow.position.copy(blade.position);
+
+    const tip = new THREE.Mesh(
+      trackGeometry(new THREE.ConeGeometry(0.115, tipLength, 4)),
+      bladeMaterial
+    );
+    tip.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+    tip.position.z = bladeBaseZ + bladeLength + tipLength / 2;
+
+    const bladeEdges = new THREE.LineSegments(
+      trackGeometry(new THREE.EdgesGeometry(bladeGeometry)),
+      edgeMaterial
+    );
+    bladeEdges.rotation.copy(blade.rotation);
+    bladeEdges.position.copy(blade.position);
+
+    const grip = new THREE.Mesh(
+      trackGeometry(new THREE.CylinderGeometry(0.11, 0.13, 0.92, 20)),
+      hiltMaterial
+    );
+    grip.rotation.x = Math.PI / 2;
+    grip.position.z = -0.08;
+
+    const phoneMountGeometry = trackGeometry(new THREE.BoxGeometry(0.34, 0.055, 0.82, 2, 1, 4));
+    const phoneMount = new THREE.Mesh(phoneMountGeometry, phoneMaterial);
+    phoneMount.position.set(0, -0.16, -0.08);
+    const phoneMountEdges = new THREE.LineSegments(
+      trackGeometry(new THREE.EdgesGeometry(phoneMountGeometry)),
+      edgeMaterial
+    );
+    phoneMountEdges.position.copy(phoneMount.position);
+
+    const guard = new THREE.Mesh(
+      trackGeometry(new THREE.CylinderGeometry(0.06, 0.07, 1.18, 20)),
+      guardMaterial
+    );
+    guard.rotation.z = Math.PI / 2;
+    guard.position.z = bladeBaseZ - 0.05;
+
+    const guardGlow = new THREE.Mesh(
+      trackGeometry(new THREE.CylinderGeometry(0.11, 0.12, 1.36, 20)),
+      hiltGlowMaterial
+    );
+    guardGlow.rotation.copy(guard.rotation);
+    guardGlow.position.copy(guard.position);
+
+    const pommel = new THREE.Mesh(
+      trackGeometry(new THREE.SphereGeometry(0.16, 24, 12)),
+      guardMaterial
+    );
+    pommel.position.z = -0.64;
+
+    const pivotGlow = new THREE.Mesh(
+      trackGeometry(new THREE.SphereGeometry(0.07, 18, 10)),
+      accentMaterial
     );
 
-    const tipGeometry = new THREE.SphereGeometry(0.12, 24, 12);
-    const tipA = new THREE.Mesh(tipGeometry, endMaterial);
-    const tipB = new THREE.Mesh(tipGeometry, endMaterial);
-    tipA.position.z = 1.36;
-    tipB.position.z = -1.36;
+    [-0.36, 0.16].forEach((zPosition) => {
+      const wrap = new THREE.Mesh(
+        trackGeometry(new THREE.TorusGeometry(0.155, 0.014, 8, 36)),
+        accentMaterial
+      );
+      wrap.position.z = zPosition;
+      sword.add(wrap);
+    });
 
-    model.add(glow, body, edges, tipA, tipB);
-    rig.add(model);
+    const guardCapGeometry = trackGeometry(new THREE.SphereGeometry(0.09, 18, 10));
+    [-0.66, 0.66].forEach((xPosition) => {
+      const cap = new THREE.Mesh(guardCapGeometry, accentMaterial);
+      cap.position.set(xPosition, 0, bladeBaseZ - 0.05);
+      sword.add(cap);
+    });
+
+    sword.add(
+      bladeGlow,
+      blade,
+      tip,
+      bladeEdges,
+      guardGlow,
+      guard,
+      grip,
+      phoneMount,
+      phoneMountEdges,
+      pommel,
+      pivotGlow
+    );
+    rig.add(sword);
     scene.add(rig);
 
     const grid = new THREE.GridHelper(7, 14, 0x1fd6ff, 0x16314a);
@@ -385,8 +520,8 @@ const PhoneStickScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     const rawQuaternion = new THREE.Quaternion();
     const targetQuaternion = new THREE.Quaternion();
     const baselineInverse = new THREE.Quaternion();
-    const baseStickAxis = new THREE.Vector3(0, 0, 1);
-    const targetStickAxis = new THREE.Vector3();
+    const baseSwordAxis = new THREE.Vector3(0, 0, 1);
+    const targetSwordAxis = new THREE.Vector3();
     const targetPosition = new THREE.Vector3();
     const currentPosition = new THREE.Vector3();
     let hasBaseline = false;
@@ -420,11 +555,11 @@ const PhoneStickScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       if (nextAxisMode !== lastAxisMode || nextAxisFlipped !== lastAxisFlipped) {
         lastAxisMode = nextAxisMode;
         lastAxisFlipped = nextAxisFlipped;
-        targetStickAxis.copy(axisTargets[nextAxisMode] || axisTargets.long);
+        targetSwordAxis.copy(axisTargets[nextAxisMode] || axisTargets.long);
         if (nextAxisFlipped) {
-          targetStickAxis.multiplyScalar(-1);
+          targetSwordAxis.multiplyScalar(-1);
         }
-        model.quaternion.setFromUnitVectors(baseStickAxis, targetStickAxis.normalize());
+        sword.quaternion.setFromUnitVectors(baseSwordAxis, targetSwordAxis.normalize());
       }
 
       if (calibrationSignalRef.current !== lastCalibrationSignal) {
@@ -456,7 +591,10 @@ const PhoneStickScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       currentPosition.lerp(targetPosition, 0.16);
       rig.position.copy(currentPosition);
 
-      glow.scale.setScalar(1 + Math.sin(time / 180) * 0.015);
+      const glowPulse = 1 + Math.sin(time / 180) * 0.018;
+      bladeGlow.scale.set(glowPulse, 1, glowPulse);
+      guardGlow.scale.setScalar(1 + Math.sin(time / 220) * 0.025);
+      pivotGlow.scale.setScalar(1 + Math.sin(time / 150) * 0.18);
       ringGroup.rotation.z += delta * 0.15;
       renderer.render(scene, camera);
       animationFrame = requestAnimationFrame(animate);
@@ -468,13 +606,8 @@ const PhoneStickScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
       mount.removeChild(renderer.domElement);
-      bodyGeometry.dispose();
-      tipGeometry.dispose();
-      bodyMaterial.dispose();
-      glowMaterial.dispose();
-      endMaterial.dispose();
-      edges.geometry.dispose();
-      edges.material.dispose();
+      geometries.forEach(geometry => geometry.dispose());
+      materials.forEach(material => material.dispose());
       grid.geometry.dispose();
       grid.material.dispose();
       renderer.dispose();
@@ -891,7 +1024,7 @@ const MotionLab = () => {
           <a href={phoneUrl} target="_blank" rel="noreferrer">{phoneUrl}</a>
         </div>
 
-        <div className="motion-axis-control" aria-label="Phone model axis">
+        <div className="motion-axis-control" aria-label="Sword hilt phone axis">
           {axisOptions.map(option => (
             <button
               key={option.id}
@@ -931,7 +1064,7 @@ const MotionLab = () => {
       </div>
 
       <div className="motion-viewport-panel">
-        <PhoneStickScene
+        <PhoneSwordScene
           packet={latestPacket}
           calibrateKey={calibrateKey}
           axisMode={axisMode}
