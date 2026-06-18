@@ -4633,15 +4633,17 @@ footer {
 }
 
 .motion-qr {
-    width: min(100%, 236px);
+    width: min(100%, 260px);
     aspect-ratio: 1;
     align-self: center;
     border-radius: 8px;
+    background: #ffffff;
+    display: block;
     box-shadow: 0 18px 34px rgba(0, 0, 0, 0.32);
 }
 
 .motion-qr-fallback {
-    width: min(100%, 236px);
+    width: min(100%, 260px);
     aspect-ratio: 1;
     align-self: center;
     border: 1px dashed rgba(255, 255, 255, 0.24);

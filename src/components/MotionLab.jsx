@@ -217,8 +217,8 @@ const QrCode = ({ value }) => {
       aria-label="Phone pairing QR code"
       shapeRendering="crispEdges"
     >
-      <rect width={qr.size} height={qr.size} rx="2" fill="#ffffff" />
-      <path d={qr.path} fill="#07111d" />
+      <rect width={qr.size} height={qr.size} fill="#ffffff" />
+      <path d={qr.path} fill="#000000" />
     </svg>
   );
 };
