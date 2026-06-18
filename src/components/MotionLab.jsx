@@ -101,8 +101,7 @@ const getPhoneSessionId = () => {
 
 const createPhoneUrl = (origin, sessionId, relayOrigin) => {
   const phoneUrl = new URL('/', origin);
-  phoneUrl.searchParams.set('m', 'p');
-  phoneUrl.searchParams.set('s', sessionId);
+  const hashParams = new URLSearchParams();
 
   const relayIsConfiguredAtBuild = (
     normalizeOrigin(configuredRelayUrl)
@@ -114,9 +113,10 @@ const createPhoneUrl = (origin, sessionId, relayOrigin) => {
     && normalizeOrigin(relayOrigin)
     && normalizeOrigin(relayOrigin) !== normalizeOrigin(origin)
   ) {
-    phoneUrl.searchParams.set('relay', normalizeOrigin(relayOrigin));
+    hashParams.set('relay', normalizeOrigin(relayOrigin));
   }
-  phoneUrl.hash = `/motion-phone/${encodeURIComponent(sessionId)}`;
+  const hashQuery = hashParams.toString();
+  phoneUrl.hash = `/motion-phone/${encodeURIComponent(sessionId)}${hashQuery ? `?${hashQuery}` : ''}`;
   return phoneUrl.toString();
 };
 

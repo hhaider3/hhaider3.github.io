@@ -15,11 +15,6 @@ const readHashRoute = () => {
   };
 };
 
-const isPhoneMode = (params) => (
-  params.get('m') === 'p'
-  || params.get('motion') === 'phone'
-);
-
 function App() {
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -33,15 +28,12 @@ function App() {
   }, [theme]);
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  const searchParams = new URLSearchParams(window.location.search);
   const hashRoute = readHashRoute();
   const isPhoneSensorClient = (
     window.location.pathname === '/motion-phone'
     || window.location.pathname.startsWith('/motion-phone/')
     || hashRoute.path === '/motion-phone'
     || hashRoute.path.startsWith('/motion-phone/')
-    || isPhoneMode(searchParams)
-    || isPhoneMode(hashRoute.params)
   );
 
   return isPhoneSensorClient
