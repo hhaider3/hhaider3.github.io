@@ -267,6 +267,45 @@ const setQuaternionFromDevice = (() => {
   };
 })();
 
+const createTaperedBladeGeometry = ({
+  baseZ,
+  tipZ,
+  baseWidth,
+  tipWidth,
+  baseThickness,
+  tipThickness,
+}) => {
+  const shoulderZ = tipZ - 0.32;
+  const vertices = [
+    [-baseWidth, 0, baseZ],
+    [0, baseThickness, baseZ],
+    [baseWidth, 0, baseZ],
+    [0, -baseThickness, baseZ],
+    [-tipWidth, 0, shoulderZ],
+    [0, tipThickness, shoulderZ],
+    [tipWidth, 0, shoulderZ],
+    [0, -tipThickness, shoulderZ],
+    [0, 0, tipZ],
+  ];
+  const indices = [];
+  const addQuad = (a, b, c, d) => {
+    indices.push(a, b, d, b, c, d);
+  };
+
+  for (let index = 0; index < 4; index += 1) {
+    const next = (index + 1) % 4;
+    addQuad(index, next, next + 4, index + 4);
+    indices.push(index + 4, next + 4, 8);
+  }
+  indices.push(0, 1, 2, 0, 2, 3);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices.flat(), 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+};
+
 const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
   const mountRef = useRef(null);
   const packetRef = useRef(packet);
@@ -329,9 +368,9 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
 
     const rig = new THREE.Group();
     const sword = new THREE.Group();
-    const bladeBaseZ = 0.48;
-    const bladeLength = 2.7;
-    const tipLength = 0.38;
+    const bladeBaseZ = 0.5;
+    const bladeTipZ = 3.08;
+    const hiltCenterZ = -0.08;
 
     const bladeMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
       color: 0xbffcff,
@@ -360,10 +399,10 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     }));
     const guardMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
       color: 0xffd166,
-      metalness: 0.5,
-      roughness: 0.22,
-      emissive: 0xff5ea8,
-      emissiveIntensity: 0.45,
+      metalness: 0.56,
+      roughness: 0.2,
+      emissive: 0x3b2500,
+      emissiveIntensity: 0.22,
       clearcoat: 0.82,
       clearcoatRoughness: 0.18,
     }));
@@ -374,9 +413,9 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       blending: THREE.AdditiveBlending,
     }));
     const hiltGlowMaterial = trackMaterial(new THREE.MeshBasicMaterial({
-      color: 0xff5ea8,
+      color: 0x19b8ff,
       transparent: true,
-      opacity: 0.2,
+      opacity: 0.16,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }));
@@ -395,42 +434,43 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       opacity: 0.82,
     }));
 
-    const bladeGeometry = trackGeometry(new THREE.CylinderGeometry(0.055, 0.12, bladeLength, 4, 1));
+    const bladeGeometry = trackGeometry(createTaperedBladeGeometry({
+      baseZ: bladeBaseZ,
+      tipZ: bladeTipZ,
+      baseWidth: 0.17,
+      tipWidth: 0.055,
+      baseThickness: 0.045,
+      tipThickness: 0.018,
+    }));
     const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
-    blade.rotation.set(Math.PI / 2, 0, Math.PI / 4);
-    blade.position.z = bladeBaseZ + bladeLength / 2;
 
     const bladeGlow = new THREE.Mesh(
-      trackGeometry(new THREE.CylinderGeometry(0.14, 0.22, bladeLength + 0.12, 4, 1)),
+      trackGeometry(createTaperedBladeGeometry({
+        baseZ: bladeBaseZ - 0.03,
+        tipZ: bladeTipZ + 0.02,
+        baseWidth: 0.27,
+        tipWidth: 0.095,
+        baseThickness: 0.075,
+        tipThickness: 0.034,
+      })),
       bladeGlowMaterial
     );
-    bladeGlow.rotation.copy(blade.rotation);
-    bladeGlow.position.copy(blade.position);
-
-    const tip = new THREE.Mesh(
-      trackGeometry(new THREE.ConeGeometry(0.115, tipLength, 4)),
-      bladeMaterial
-    );
-    tip.rotation.set(Math.PI / 2, 0, Math.PI / 4);
-    tip.position.z = bladeBaseZ + bladeLength + tipLength / 2;
 
     const bladeEdges = new THREE.LineSegments(
       trackGeometry(new THREE.EdgesGeometry(bladeGeometry)),
       edgeMaterial
     );
-    bladeEdges.rotation.copy(blade.rotation);
-    bladeEdges.position.copy(blade.position);
 
     const grip = new THREE.Mesh(
-      trackGeometry(new THREE.CylinderGeometry(0.11, 0.13, 0.92, 20)),
+      trackGeometry(new THREE.CylinderGeometry(0.065, 0.075, 0.84, 18)),
       hiltMaterial
     );
     grip.rotation.x = Math.PI / 2;
-    grip.position.z = -0.08;
+    grip.position.set(0, 0.04, hiltCenterZ);
 
-    const phoneMountGeometry = trackGeometry(new THREE.BoxGeometry(0.34, 0.055, 0.82, 2, 1, 4));
+    const phoneMountGeometry = trackGeometry(new THREE.BoxGeometry(0.3, 0.05, 0.9, 2, 1, 4));
     const phoneMount = new THREE.Mesh(phoneMountGeometry, phoneMaterial);
-    phoneMount.position.set(0, -0.16, -0.08);
+    phoneMount.position.set(0, -0.105, hiltCenterZ);
     const phoneMountEdges = new THREE.LineSegments(
       trackGeometry(new THREE.EdgesGeometry(phoneMountGeometry)),
       edgeMaterial
@@ -438,50 +478,48 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     phoneMountEdges.position.copy(phoneMount.position);
 
     const guard = new THREE.Mesh(
-      trackGeometry(new THREE.CylinderGeometry(0.06, 0.07, 1.18, 20)),
+      trackGeometry(new THREE.BoxGeometry(0.9, 0.1, 0.12, 2, 1, 1)),
       guardMaterial
     );
-    guard.rotation.z = Math.PI / 2;
-    guard.position.z = bladeBaseZ - 0.05;
+    guard.position.z = bladeBaseZ - 0.08;
 
     const guardGlow = new THREE.Mesh(
-      trackGeometry(new THREE.CylinderGeometry(0.11, 0.12, 1.36, 20)),
+      trackGeometry(new THREE.BoxGeometry(1.06, 0.16, 0.18, 2, 1, 1)),
       hiltGlowMaterial
     );
-    guardGlow.rotation.copy(guard.rotation);
     guardGlow.position.copy(guard.position);
 
     const pommel = new THREE.Mesh(
-      trackGeometry(new THREE.SphereGeometry(0.16, 24, 12)),
+      trackGeometry(new THREE.SphereGeometry(0.115, 24, 12)),
       guardMaterial
     );
-    pommel.position.z = -0.64;
+    pommel.position.z = -0.62;
 
     const pivotGlow = new THREE.Mesh(
-      trackGeometry(new THREE.SphereGeometry(0.07, 18, 10)),
+      trackGeometry(new THREE.SphereGeometry(0.035, 18, 10)),
       accentMaterial
     );
+    pivotGlow.position.z = hiltCenterZ;
 
     [-0.36, 0.16].forEach((zPosition) => {
       const wrap = new THREE.Mesh(
-        trackGeometry(new THREE.TorusGeometry(0.155, 0.014, 8, 36)),
+        trackGeometry(new THREE.TorusGeometry(0.095, 0.01, 8, 36)),
         accentMaterial
       );
       wrap.position.z = zPosition;
       sword.add(wrap);
     });
 
-    const guardCapGeometry = trackGeometry(new THREE.SphereGeometry(0.09, 18, 10));
-    [-0.66, 0.66].forEach((xPosition) => {
+    const guardCapGeometry = trackGeometry(new THREE.SphereGeometry(0.06, 18, 10));
+    [-0.49, 0.49].forEach((xPosition) => {
       const cap = new THREE.Mesh(guardCapGeometry, accentMaterial);
-      cap.position.set(xPosition, 0, bladeBaseZ - 0.05);
+      cap.position.set(xPosition, 0, bladeBaseZ - 0.08);
       sword.add(cap);
     });
 
     sword.add(
       bladeGlow,
       blade,
-      tip,
       bladeEdges,
       guardGlow,
       guard,
@@ -592,8 +630,8 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       rig.position.copy(currentPosition);
 
       const glowPulse = 1 + Math.sin(time / 180) * 0.018;
-      bladeGlow.scale.set(glowPulse, 1, glowPulse);
-      guardGlow.scale.setScalar(1 + Math.sin(time / 220) * 0.025);
+      bladeGlow.scale.set(glowPulse, glowPulse, 1);
+      guardGlow.scale.set(1, 1 + Math.sin(time / 220) * 0.025, 1);
       pivotGlow.scale.setScalar(1 + Math.sin(time / 150) * 0.18);
       ringGroup.rotation.z += delta * 0.15;
       renderer.render(scene, camera);
