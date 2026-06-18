@@ -67,8 +67,15 @@ const getScreenAngle = () => {
 
 const getSearchParams = () => new URLSearchParams(window.location.search);
 
+const getHashParams = () => {
+  const hash = window.location.hash.replace(/^#/, '');
+  const queryStart = hash.indexOf('?');
+
+  return new URLSearchParams(queryStart >= 0 ? hash.slice(queryStart + 1) : '');
+};
+
 const getRelayOrigin = () => {
-  const relayParam = getSearchParams().get('relay');
+  const relayParam = getSearchParams().get('relay') || getHashParams().get('relay');
   const relayOrigin = normalizeOrigin(relayParam) || normalizeOrigin(configuredRelayUrl);
 
   return relayOrigin || window.location.origin;
@@ -78,12 +85,15 @@ const getPhoneSessionId = () => {
   const pathSession = window.location.pathname.match(/^\/motion-phone\/([^/]+)\/?$/)?.[1];
   const hashSession = window.location.hash.match(/^#\/motion-phone\/([^?/#]+)\/?/)?.[1];
   const params = getSearchParams();
+  const hashParams = getHashParams();
 
   return (
     (pathSession ? decodeURIComponent(pathSession) : '')
     || (hashSession ? decodeURIComponent(hashSession) : '')
     || params.get('s')
     || params.get('session')
+    || hashParams.get('s')
+    || hashParams.get('session')
     || ''
   );
 };
@@ -105,6 +115,7 @@ const createPhoneUrl = (origin, sessionId, relayOrigin) => {
   ) {
     phoneUrl.searchParams.set('relay', normalizeOrigin(relayOrigin));
   }
+  phoneUrl.hash = `/motion-phone/${encodeURIComponent(sessionId)}`;
   return phoneUrl.toString();
 };
 

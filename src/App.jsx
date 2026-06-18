@@ -5,6 +5,21 @@ const PhoneSensorClient = lazy(() => import('./components/MotionLab').then(modul
   default: module.PhoneSensorClient,
 })));
 
+const readHashRoute = () => {
+  const hash = window.location.hash.replace(/^#/, '');
+  const [path = '', query = ''] = hash.split('?');
+
+  return {
+    path,
+    params: new URLSearchParams(query),
+  };
+};
+
+const isPhoneMode = (params) => (
+  params.get('m') === 'p'
+  || params.get('motion') === 'phone'
+);
+
 function App() {
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -19,14 +34,14 @@ function App() {
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   const searchParams = new URLSearchParams(window.location.search);
-  const hashPath = window.location.hash.replace(/^#/, '');
+  const hashRoute = readHashRoute();
   const isPhoneSensorClient = (
     window.location.pathname === '/motion-phone'
     || window.location.pathname.startsWith('/motion-phone/')
-    || hashPath === '/motion-phone'
-    || hashPath.startsWith('/motion-phone/')
-    || searchParams.get('m') === 'p'
-    || searchParams.get('motion') === 'phone'
+    || hashRoute.path === '/motion-phone'
+    || hashRoute.path.startsWith('/motion-phone/')
+    || isPhoneMode(searchParams)
+    || isPhoneMode(hashRoute.params)
   );
 
   return isPhoneSensorClient
