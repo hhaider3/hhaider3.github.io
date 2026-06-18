@@ -4570,7 +4570,7 @@ footer {
     height: 100%;
     padding: 12px;
     display: grid;
-    grid-template-columns: minmax(270px, 320px) minmax(360px, 1fr) minmax(280px, 340px);
+    grid-template-columns: minmax(270px, 320px) minmax(360px, 1fr);
     gap: 12px;
     background:
         radial-gradient(circle at 38% 22%, rgba(25, 184, 255, 0.2), transparent 32%),
@@ -4578,6 +4578,18 @@ footer {
         linear-gradient(145deg, #050912 0%, #101827 47%, #07151b 100%);
     color: rgba(240, 246, 255, 0.82);
     overflow: hidden;
+}
+
+.motion-lab.stream-expanded {
+    grid-template-columns: minmax(270px, 320px) minmax(360px, 1fr) minmax(280px, 340px);
+}
+
+.motion-lab.pair-hidden {
+    grid-template-columns: minmax(360px, 1fr);
+}
+
+.motion-lab.pair-hidden.stream-expanded {
+    grid-template-columns: minmax(360px, 1fr) minmax(280px, 340px);
 }
 
 .motion-host-panel,
@@ -4865,6 +4877,40 @@ footer {
     text-align: right;
 }
 
+.motion-scene-actions {
+    pointer-events: auto;
+    display: grid;
+    justify-items: end;
+    gap: 8px;
+}
+
+.motion-overlay-button {
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(3, 8, 16, 0.68);
+    color: rgba(245, 250, 255, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 800;
+    transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.motion-overlay-button:hover,
+.motion-overlay-button.active {
+    transform: translateY(-1px);
+    border-color: rgba(25, 184, 255, 0.44);
+    background: rgba(11, 24, 40, 0.82);
+    color: #f8fbff;
+}
+
 .motion-data-panel {
     overflow: auto;
 }
@@ -5010,6 +5056,15 @@ footer {
         grid-template-rows: minmax(380px, 1fr) auto;
     }
 
+    .motion-lab.stream-expanded {
+        grid-template-columns: minmax(260px, 300px) minmax(360px, 1fr);
+    }
+
+    .motion-lab.pair-hidden,
+    .motion-lab.pair-hidden.stream-expanded {
+        grid-template-columns: 1fr;
+    }
+
     .motion-data-panel {
         grid-column: 1 / -1;
     }
@@ -5025,6 +5080,12 @@ footer {
         min-height: 100%;
         grid-template-columns: 1fr;
         overflow: auto;
+    }
+
+    .motion-lab.stream-expanded,
+    .motion-lab.pair-hidden,
+    .motion-lab.pair-hidden.stream-expanded {
+        grid-template-columns: 1fr;
     }
 
     .motion-viewport-panel {

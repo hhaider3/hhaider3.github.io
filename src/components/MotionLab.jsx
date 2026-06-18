@@ -1081,6 +1081,7 @@ const MotionLab = () => {
   const [calibrateKey, setCalibrateKey] = useState(0);
   const [axisMode, setAxisMode] = useState('long');
   const [isAxisFlipped, setIsAxisFlipped] = useState(false);
+  const [isStreamExpanded, setIsStreamExpanded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const arrivalTimesRef = useRef([]);
 
@@ -1160,6 +1161,12 @@ const MotionLab = () => {
   const rotationRate = motion.rotationRate;
   const secureOrigin = config?.secure || window.isSecureContext;
   const isRelayAvailable = config?.relayAvailable !== false;
+  const showPairPanel = !isLive;
+  const labClassName = [
+    'motion-lab',
+    showPairPanel ? '' : 'pair-hidden',
+    isStreamExpanded ? 'stream-expanded' : 'stream-collapsed',
+  ].filter(Boolean).join(' ');
 
   const resetSession = () => {
     setRelayStatus('connecting');
@@ -1167,65 +1174,68 @@ const MotionLab = () => {
     setLatestPacket(null);
     setPacketCount(0);
     setPacketRate(0);
+    setIsStreamExpanded(false);
     arrivalTimesRef.current = [];
   };
 
   return (
-    <section className="motion-lab">
-      <div className="motion-host-panel motion-pair-panel">
-        <div className="motion-panel-heading">
-          <span className="motion-heading-icon"><Smartphone size={20} /></span>
-          <div>
-            <h2>Motion Lab</h2>
-            <p>Session {sessionId.toUpperCase()}</p>
+    <section className={labClassName}>
+      {showPairPanel && (
+        <div className="motion-host-panel motion-pair-panel">
+          <div className="motion-panel-heading">
+            <span className="motion-heading-icon"><Smartphone size={20} /></span>
+            <div>
+              <h2>Motion Lab</h2>
+              <p>Session {sessionId.toUpperCase()}</p>
+            </div>
+          </div>
+
+          <QrCode value={phoneUrl} />
+
+          <div className="motion-url-box">
+            <Link size={15} />
+            <a href={phoneUrl} target="_blank" rel="noreferrer">{phoneUrl}</a>
+          </div>
+
+          <div className="motion-axis-control" aria-label="Sword hilt phone axis">
+            {axisOptions.map(option => (
+              <button
+                key={option.id}
+                type="button"
+                className={axisMode === option.id ? 'active' : ''}
+                onClick={() => setAxisMode(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="motion-pair-actions">
+            <button type="button" className="motion-secondary-button" onClick={resetSession}>
+              <RefreshCw size={16} />
+              New session
+            </button>
+            <button type="button" className="motion-secondary-button" onClick={() => setCalibrateKey(key => key + 1)}>
+              <Compass size={16} />
+              Calibrate
+            </button>
+            <button type="button" className="motion-secondary-button" onClick={() => setIsAxisFlipped(flipped => !flipped)}>
+              <RefreshCw size={16} />
+              Flip tip
+            </button>
+          </div>
+
+          <div className="motion-context-list">
+            <span className={secureOrigin ? 'ok' : 'warn'}>
+              {secureOrigin ? 'Trusted origin' : 'HTTPS needed for phone sensors'}
+            </span>
+            <span>{config?.lanOrigins?.[0] ? 'LAN address detected' : 'Using current origin'}</span>
+            <span className={isRelayAvailable ? 'ok' : 'warn'}>
+              {isRelayAvailable ? 'Local relay ready' : 'Relay unavailable on static hosting'}
+            </span>
           </div>
         </div>
-
-        <QrCode value={phoneUrl} />
-
-        <div className="motion-url-box">
-          <Link size={15} />
-          <a href={phoneUrl} target="_blank" rel="noreferrer">{phoneUrl}</a>
-        </div>
-
-        <div className="motion-axis-control" aria-label="Sword hilt phone axis">
-          {axisOptions.map(option => (
-            <button
-              key={option.id}
-              type="button"
-              className={axisMode === option.id ? 'active' : ''}
-              onClick={() => setAxisMode(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="motion-pair-actions">
-          <button type="button" className="motion-secondary-button" onClick={resetSession}>
-            <RefreshCw size={16} />
-            New session
-          </button>
-          <button type="button" className="motion-secondary-button" onClick={() => setCalibrateKey(key => key + 1)}>
-            <Compass size={16} />
-            Calibrate
-          </button>
-          <button type="button" className="motion-secondary-button" onClick={() => setIsAxisFlipped(flipped => !flipped)}>
-            <RefreshCw size={16} />
-            Flip tip
-          </button>
-        </div>
-
-        <div className="motion-context-list">
-          <span className={secureOrigin ? 'ok' : 'warn'}>
-            {secureOrigin ? 'Trusted origin' : 'HTTPS needed for phone sensors'}
-          </span>
-          <span>{config?.lanOrigins?.[0] ? 'LAN address detected' : 'Using current origin'}</span>
-          <span className={isRelayAvailable ? 'ok' : 'warn'}>
-            {isRelayAvailable ? 'Local relay ready' : 'Relay unavailable on static hosting'}
-          </span>
-        </div>
-      </div>
+      )}
 
       <div className="motion-viewport-panel">
         <PhoneSwordScene
@@ -1240,49 +1250,63 @@ const MotionLab = () => {
             <strong>{isLive ? 'Live' : relayStatus === 'unavailable' ? 'No relay' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</strong>
             <small>{Number.isFinite(packetAge) ? `${Math.round(packetAge)} ms ago` : relayStatus}</small>
           </div>
-          <div className="motion-scene-readout">
-            <span>Hz {packetRate}</span>
-            <span>Packets {packetCount}</span>
+          <div className="motion-scene-actions">
+            <button
+              type="button"
+              className={`motion-overlay-button ${isStreamExpanded ? 'active' : ''}`}
+              onClick={() => setIsStreamExpanded(expanded => !expanded)}
+              aria-controls="motion-sensor-stream"
+              aria-expanded={isStreamExpanded}
+            >
+              <Gauge size={15} />
+              {isStreamExpanded ? 'Hide stream' : 'Show stream'}
+            </button>
+            <div className="motion-scene-readout">
+              <span>Hz {packetRate}</span>
+              <span>Packets {packetCount}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="motion-host-panel motion-data-panel">
-        <div className="motion-panel-heading">
-          <span className="motion-heading-icon"><Gauge size={20} /></span>
-          <div>
-            <h2>Sensor Stream</h2>
-            <p>{latestPacket?.seen?.orientation || latestPacket?.seen?.motion ? 'Phone sensors active' : 'No phone packets yet'}</p>
+      {isStreamExpanded && (
+        <div className="motion-host-panel motion-data-panel" id="motion-sensor-stream">
+          <div className="motion-panel-heading">
+            <span className="motion-heading-icon"><Gauge size={20} /></span>
+            <div>
+              <h2>Sensor Stream</h2>
+              <p>{latestPacket?.seen?.orientation || latestPacket?.seen?.motion ? 'Phone sensors active' : 'No phone packets yet'}</p>
+            </div>
+          </div>
+
+          <div className="motion-telemetry-grid">
+            <TelemetryTile
+              label="Orientation"
+              value={`${formatMetric(orientation.alpha)} deg`}
+              detail={`beta ${formatMetric(orientation.beta)} / gamma ${formatMetric(orientation.gamma)}`}
+              icon={<Compass size={16} />}
+            />
+            <TelemetryTile
+              label="Accel"
+              value={formatVector(acceleration)}
+              detail="m/s2, linear"
+              icon={<Activity size={16} />}
+            />
+            <TelemetryTile
+              label="Gravity"
+              value={formatVector(accelerationWithGravity)}
+              detail="m/s2, total"
+              icon={<Wifi size={16} />}
+            />
+            <TelemetryTile
+              label="Gyro"
+              value={`${formatMetric(rotationRate?.alpha)} / ${formatMetric(rotationRate?.beta)} / ${formatMetric(rotationRate?.gamma)}`}
+              detail="deg/s alpha beta gamma"
+              icon={<RadioTower size={16} />}
+            />
           </div>
         </div>
-
-        <div className="motion-telemetry-grid">
-          <TelemetryTile
-            label="Orientation"
-            value={`${formatMetric(orientation.alpha)} deg`}
-            detail={`beta ${formatMetric(orientation.beta)} / gamma ${formatMetric(orientation.gamma)}`}
-            icon={<Compass size={16} />}
-          />
-          <TelemetryTile
-            label="Accel"
-            value={formatVector(acceleration)}
-            detail="m/s2, linear"
-            icon={<Activity size={16} />}
-          />
-          <TelemetryTile
-            label="Gravity"
-            value={formatVector(accelerationWithGravity)}
-            detail="m/s2, total"
-            icon={<Wifi size={16} />}
-          />
-          <TelemetryTile
-            label="Gyro"
-            value={`${formatMetric(rotationRate?.alpha)} / ${formatMetric(rotationRate?.beta)} / ${formatMetric(rotationRate?.gamma)}`}
-            detail="deg/s alpha beta gamma"
-            icon={<RadioTower size={16} />}
-          />
-        </div>
-      </div>
+      )}
     </section>
   );
 };
