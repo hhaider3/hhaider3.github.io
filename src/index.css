@@ -4671,9 +4671,15 @@ footer {
     color: #14d6b4;
 }
 
-.motion-url-box span {
+.motion-url-box a {
     min-width: 0;
+    color: rgba(242, 247, 255, 0.84);
+    text-decoration: none;
     overflow-wrap: anywhere;
+}
+
+.motion-url-box a:hover {
+    color: #ffffff;
 }
 
 .motion-pair-actions,

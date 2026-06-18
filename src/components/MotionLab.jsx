@@ -92,10 +92,19 @@ const createPhoneUrl = (origin, sessionId, relayOrigin) => {
   const phoneUrl = new URL('/', origin);
   phoneUrl.searchParams.set('m', 'p');
   phoneUrl.searchParams.set('s', sessionId);
-  if (normalizeOrigin(relayOrigin) && normalizeOrigin(relayOrigin) !== normalizeOrigin(origin)) {
+
+  const relayIsConfiguredAtBuild = (
+    normalizeOrigin(configuredRelayUrl)
+    && normalizeOrigin(configuredRelayUrl) === normalizeOrigin(relayOrigin)
+  );
+
+  if (
+    !relayIsConfiguredAtBuild
+    && normalizeOrigin(relayOrigin)
+    && normalizeOrigin(relayOrigin) !== normalizeOrigin(origin)
+  ) {
     phoneUrl.searchParams.set('relay', normalizeOrigin(relayOrigin));
   }
-  phoneUrl.hash = `/motion-phone/${encodeURIComponent(sessionId)}`;
   return phoneUrl.toString();
 };
 
@@ -863,7 +872,7 @@ const MotionLab = () => {
 
         <div className="motion-url-box">
           <Link size={15} />
-          <span>{phoneUrl}</span>
+          <a href={phoneUrl} target="_blank" rel="noreferrer">{phoneUrl}</a>
         </div>
 
         <div className="motion-axis-control" aria-label="Phone model axis">
