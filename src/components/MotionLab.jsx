@@ -17,6 +17,21 @@ import { createQrPath } from '../utils/qrCode';
 
 const publishEndpoint = '/api/motion/publish';
 const configEndpoint = '/api/motion/config';
+const configuredRelayUrl = import.meta.env.VITE_MOTION_RELAY_URL || '';
+
+const createApiUrl = (origin, endpoint) => new URL(endpoint, origin).toString();
+
+const normalizeOrigin = (value) => {
+  if (!value) {
+    return '';
+  }
+
+  try {
+    return new URL(value, window.location.origin).origin;
+  } catch {
+    return '';
+  }
+};
 
 const createSessionId = () => {
   if (window.crypto?.getRandomValues) {
@@ -52,6 +67,13 @@ const getScreenAngle = () => {
 
 const getSearchParams = () => new URLSearchParams(window.location.search);
 
+const getRelayOrigin = () => {
+  const relayParam = getSearchParams().get('relay');
+  const relayOrigin = normalizeOrigin(relayParam) || normalizeOrigin(configuredRelayUrl);
+
+  return relayOrigin || window.location.origin;
+};
+
 const getPhoneSessionId = () => {
   const pathSession = window.location.pathname.match(/^\/motion-phone\/([^/]+)\/?$/)?.[1];
   const hashSession = window.location.hash.match(/^#\/motion-phone\/([^?/#]+)\/?/)?.[1];
@@ -66,10 +88,13 @@ const getPhoneSessionId = () => {
   );
 };
 
-const createPhoneUrl = (origin, sessionId) => {
+const createPhoneUrl = (origin, sessionId, relayOrigin) => {
   const phoneUrl = new URL('/', origin);
   phoneUrl.searchParams.set('m', 'p');
   phoneUrl.searchParams.set('s', sessionId);
+  if (normalizeOrigin(relayOrigin) && normalizeOrigin(relayOrigin) !== normalizeOrigin(origin)) {
+    phoneUrl.searchParams.set('relay', normalizeOrigin(relayOrigin));
+  }
   phoneUrl.hash = `/motion-phone/${encodeURIComponent(sessionId)}`;
   return phoneUrl.toString();
 };
@@ -440,11 +465,13 @@ const PhoneStickScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
 
 export const PhoneSensorClient = () => {
   const sessionId = getPhoneSessionId();
+  const relayOrigin = useMemo(() => getRelayOrigin(), []);
   const latestPacketRef = useRef(null);
   const seenRef = useRef({ motion: false, orientation: false });
   const [isStreaming, setIsStreaming] = useState(false);
   const [status, setStatus] = useState(sessionId ? 'idle' : 'missing-session');
   const [statusDetail, setStatusDetail] = useState('');
+  const [relayCheck, setRelayCheck] = useState('checking');
   const [sentCount, setSentCount] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
   const [seen, setSeen] = useState({ motion: false, orientation: false });
@@ -463,8 +490,35 @@ export const PhoneSensorClient = () => {
     setSeen(seenRef.current);
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+
+    fetch(createApiUrl(relayOrigin, configEndpoint))
+      .then(response => response.ok ? response.json() : Promise.reject(new Error(`Relay returned ${response.status}`)))
+      .then(() => {
+        if (!ignore) {
+          setRelayCheck('ready');
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setRelayCheck('unavailable');
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [relayOrigin]);
+
   const startSensors = async () => {
     if (!sessionId || isStreaming) {
+      return;
+    }
+
+    if (relayCheck !== 'ready') {
+      setStatus('relay-error');
+      setStatusDetail('No live relay is available here. GitHub Pages can open this sender, but it cannot receive sensor data.');
       return;
     }
 
@@ -542,7 +596,7 @@ export const PhoneSensorClient = () => {
 
       try {
         requestInFlight = true;
-        const response = await fetch(publishEndpoint, {
+        const response = await fetch(createApiUrl(relayOrigin, publishEndpoint), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(packet),
@@ -587,7 +641,7 @@ export const PhoneSensorClient = () => {
       window.removeEventListener('devicemotion', updateMotion);
       window.removeEventListener('deviceorientation', updateOrientation);
     };
-  }, [isStreaming, markSeen, sessionId]);
+  }, [isStreaming, markSeen, relayOrigin, sessionId]);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -604,6 +658,7 @@ export const PhoneSensorClient = () => {
   const orientation = getPacketOrientation(preview);
   const acceleration = getPacketMotion(preview).acceleration;
   const hasSensorSupport = typeof DeviceMotionEvent !== 'undefined' || typeof DeviceOrientationEvent !== 'undefined';
+  const relayUnavailable = relayCheck === 'unavailable';
 
   return (
     <main className="motion-phone-page">
@@ -633,6 +688,13 @@ export const PhoneSensorClient = () => {
           </div>
         )}
 
+        {relayUnavailable && (
+          <div className="motion-phone-alert">
+            <AlertTriangle size={18} />
+            <span>GitHub Pages is static, so it cannot receive sensor packets. Use the local HTTPS QR or add a live relay backend.</span>
+          </div>
+        )}
+
         {statusDetail && (
           <div className="motion-phone-alert">
             <AlertTriangle size={18} />
@@ -645,10 +707,10 @@ export const PhoneSensorClient = () => {
             type="button"
             className="motion-primary-button"
             onClick={startSensors}
-            disabled={!sessionId || isStreaming}
+            disabled={!sessionId || isStreaming || relayCheck !== 'ready'}
           >
             <Play size={18} />
-            Start sensors
+            {relayCheck === 'checking' ? 'Checking relay' : relayCheck === 'unavailable' ? 'No relay' : 'Start sensors'}
           </button>
           <button
             type="button"
@@ -687,6 +749,7 @@ export const PhoneSensorClient = () => {
 };
 
 const MotionLab = () => {
+  const relayOrigin = useMemo(() => getRelayOrigin(), []);
   const [sessionId, setSessionId] = useState(createSessionId);
   const [config, setConfig] = useState(null);
   const [relayStatus, setRelayStatus] = useState('connecting');
@@ -702,7 +765,7 @@ const MotionLab = () => {
   useEffect(() => {
     let ignore = false;
 
-    fetch(configEndpoint)
+    fetch(createApiUrl(relayOrigin, configEndpoint))
       .then(response => response.ok ? response.json() : Promise.reject(new Error('Relay config unavailable')))
       .then(payload => {
         if (!ignore) {
@@ -725,7 +788,7 @@ const MotionLab = () => {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [relayOrigin]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 250);
@@ -737,7 +800,10 @@ const MotionLab = () => {
       return undefined;
     }
 
-    const eventSource = new EventSource(`/api/motion/events?s=${encodeURIComponent(sessionId)}`);
+    const eventSource = new EventSource(createApiUrl(
+      relayOrigin,
+      `/api/motion/events?s=${encodeURIComponent(sessionId)}`
+    ));
 
     eventSource.onopen = () => setRelayStatus('ready');
     eventSource.onerror = () => setRelayStatus('reconnecting');
@@ -753,10 +819,16 @@ const MotionLab = () => {
     });
 
     return () => eventSource.close();
-  }, [config, sessionId]);
+  }, [config, relayOrigin, sessionId]);
 
-  const preferredOrigin = config?.preferredOrigin || window.location.origin;
-  const phoneUrl = useMemo(() => createPhoneUrl(preferredOrigin, sessionId), [preferredOrigin, sessionId]);
+  const phonePageOrigin = relayOrigin === window.location.origin
+    ? (config?.preferredOrigin || window.location.origin)
+    : window.location.origin;
+  const phoneRelayOrigin = relayOrigin === window.location.origin ? phonePageOrigin : relayOrigin;
+  const phoneUrl = useMemo(
+    () => createPhoneUrl(phonePageOrigin, sessionId, phoneRelayOrigin),
+    [phonePageOrigin, phoneRelayOrigin, sessionId]
+  );
   const packetAge = latestPacket?.relayReceivedAt ? now - latestPacket.relayReceivedAt : Infinity;
   const isLive = packetAge < 1600;
   const orientation = getPacketOrientation(latestPacket);

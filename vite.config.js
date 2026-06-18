@@ -31,6 +31,14 @@ const sendJson = (res, statusCode, payload) => {
   res.end(JSON.stringify(payload));
 };
 
+const setCorsHeaders = (req, res) => {
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Vary', 'Origin');
+};
+
 const readJsonBody = (req) => new Promise((resolve, reject) => {
   let body = '';
 
@@ -95,6 +103,18 @@ const motionRelayPlugin = () => ({
         }
       });
     };
+
+    server.middlewares.use('/api/motion', (req, res, next) => {
+      setCorsHeaders(req, res);
+
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
+
+      next();
+    });
 
     server.middlewares.use('/api/motion/config', (req, res) => {
       if (req.method !== 'GET') {
