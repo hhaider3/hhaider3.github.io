@@ -1,4 +1,10 @@
 import http from 'node:http';
+import {
+  acceptWebSocket,
+  createWebSocketParser,
+  webSocketPath,
+  writeWebSocketJson,
+} from './websocket-relay.mjs';
 
 const port = Number(process.env.PORT || 8787);
 const sessionTtlMs = Number(process.env.MOTION_SESSION_TTL_MS || 30 * 60 * 1000);
@@ -77,6 +83,7 @@ const getSession = (sessionId) => {
       clients: new Set(),
       createdAt: Date.now(),
       lastPacket: null,
+      publishers: new Set(),
       updatedAt: Date.now(),
     });
   }
@@ -97,6 +104,23 @@ const broadcast = (sessionId, eventName, payload) => {
       session.clients.delete(client);
     }
   });
+};
+
+const publishPacket = (sessionId, packet) => {
+  const session = getSession(sessionId);
+  const enrichedPacket = {
+    ...packet,
+    sessionId,
+    relayReceivedAt: Date.now(),
+  };
+  session.lastPacket = enrichedPacket;
+  session.updatedAt = Date.now();
+  broadcast(sessionId, 'sensor', enrichedPacket);
+
+  return {
+    packet: enrichedPacket,
+    listeners: session.clients.size,
+  };
 };
 
 const handleConfig = (req, res) => {
@@ -168,26 +192,91 @@ const handlePublish = async (req, res) => {
       return;
     }
 
-    const session = getSession(sessionId);
-    const enrichedPacket = {
-      ...packet,
-      sessionId,
-      relayReceivedAt: Date.now(),
-    };
-    session.lastPacket = enrichedPacket;
-    session.updatedAt = Date.now();
-    broadcast(sessionId, 'sensor', enrichedPacket);
-    sendJson(req, res, 200, { ok: true, listeners: session.clients.size });
+    const result = publishPacket(sessionId, packet);
+    sendJson(req, res, 200, { ok: true, listeners: result.listeners });
   } catch (error) {
     sendJson(req, res, 400, { error: error.message || 'Invalid sensor packet' });
   }
+};
+
+const rejectUpgrade = (socket, statusCode, message) => {
+  socket.write(`HTTP/1.1 ${statusCode} ${message}\r\nConnection: close\r\n\r\n`);
+  socket.destroy();
+};
+
+const handleSocketUpgrade = (req, socket) => {
+  const url = new URL(req.url || '/', getRequestOrigin(req));
+
+  if (url.pathname !== webSocketPath) {
+    rejectUpgrade(socket, 404, 'Not Found');
+    return;
+  }
+
+  const requestOrigin = req.headers.origin;
+  if (requestOrigin && !isOriginAllowed(requestOrigin)) {
+    rejectUpgrade(socket, 403, 'Forbidden');
+    return;
+  }
+
+  const sessionId = url.searchParams.get('s');
+  if (!sessionId) {
+    rejectUpgrade(socket, 400, 'Bad Request');
+    return;
+  }
+
+  if (!acceptWebSocket(req, socket)) {
+    return;
+  }
+
+  const session = getSession(sessionId);
+  session.publishers.add(socket);
+  let lastStatsAt = 0;
+
+  writeWebSocketJson(socket, {
+    type: 'hello',
+    sessionId,
+    listeners: session.clients.size,
+    relayOrigin: getRequestOrigin(req),
+  });
+
+  const parser = createWebSocketParser({
+    maxPayloadBytes,
+    onText: (message) => {
+      const packet = JSON.parse(message);
+      const result = publishPacket(sessionId, {
+        ...packet,
+        sessionId,
+      });
+      const now = Date.now();
+
+      if (now - lastStatsAt >= 1000) {
+        lastStatsAt = now;
+        writeWebSocketJson(socket, {
+          type: 'stats',
+          listeners: result.listeners,
+          now,
+        });
+      }
+    },
+    onError: () => {
+      session.publishers.delete(socket);
+    },
+  });
+
+  socket.on('data', chunk => parser(chunk, socket));
+  socket.on('close', () => {
+    session.publishers.delete(socket);
+  });
+  socket.on('error', () => {
+    session.publishers.delete(socket);
+  });
 };
 
 const pruneSessions = () => {
   const cutoff = Date.now() - sessionTtlMs;
 
   sessions.forEach((session, sessionId) => {
-    if (session.updatedAt >= cutoff || session.clients.size > 0) {
+    if (session.updatedAt >= cutoff || session.clients.size > 0 || session.publishers.size > 0) {
       return;
     }
 
@@ -234,6 +323,8 @@ const server = http.createServer((req, res) => {
 
   sendJson(req, res, 404, { error: 'Not found' });
 });
+
+server.on('upgrade', handleSocketUpgrade);
 
 server.listen(port, () => {
   console.log(`Motion relay listening on http://localhost:${port}`);

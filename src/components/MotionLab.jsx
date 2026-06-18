@@ -16,11 +16,20 @@ import {
 import { createQrPath } from '../utils/qrCode';
 
 const publishEndpoint = '/api/motion/publish';
+const socketEndpoint = '/api/motion/socket';
 const configEndpoint = '/api/motion/config';
 const defaultRelayUrl = 'https://motion-lab-relay.onrender.com';
 const configuredRelayUrl = import.meta.env.VITE_MOTION_RELAY_URL || defaultRelayUrl;
+const targetPublishIntervalMs = 1000 / 30;
+const maxSocketBufferedBytes = 256_000;
 
 const createApiUrl = (origin, endpoint) => new URL(endpoint, origin).toString();
+
+const createSocketUrl = (origin, endpoint) => {
+  const url = new URL(endpoint, origin);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url.toString();
+};
 
 const normalizeOrigin = (value) => {
   if (!value) {
@@ -738,9 +747,15 @@ export const PhoneSensorClient = () => {
     }
 
     let animationFrame = 0;
+    let fallbackTimer = 0;
     let lastSend = 0;
+    let lastSentUiUpdate = 0;
     let requestInFlight = false;
+    let socket = null;
+    let socketReady = false;
+    let useHttpFallback = false;
     let stopped = false;
+    let sentSinceUiUpdate = 0;
 
     const updateMotion = (event) => {
       latestPacketRef.current = {
@@ -769,7 +784,7 @@ export const PhoneSensorClient = () => {
       markSeen('orientation');
     };
 
-    const sendPacket = async () => {
+    const buildPacket = () => {
       const packet = {
         ...(latestPacketRef.current || buildEmptyPacket(sessionId)),
         sessionId,
@@ -785,9 +800,60 @@ export const PhoneSensorClient = () => {
         userAgent: navigator.userAgent,
       };
       latestPacketRef.current = packet;
+      return packet;
+    };
+
+    const notePacketSent = (time) => {
+      sentSinceUiUpdate += 1;
+
+      if (time - lastSentUiUpdate < 250) {
+        return;
+      }
+
+      const increment = sentSinceUiUpdate;
+      sentSinceUiUpdate = 0;
+      lastSentUiUpdate = time;
+
+      if (!stopped) {
+        setSentCount(count => count + increment);
+      }
+    };
+
+    const flushSentCount = () => {
+      if (sentSinceUiUpdate <= 0 || stopped) {
+        return;
+      }
+
+      const increment = sentSinceUiUpdate;
+      sentSinceUiUpdate = 0;
+      setSentCount(count => count + increment);
+    };
+
+    const updateSocketStats = (message) => {
+      try {
+        const payload = JSON.parse(message.data);
+
+        if (!Number.isFinite(payload.listeners)) {
+          return;
+        }
+
+        if (!stopped) {
+          setListenerCount(payload.listeners);
+        }
+      } catch (error) {
+        console.warn('Motion socket stats were not valid JSON.', error);
+      }
+    };
+
+    const sendHttpPacket = async (time) => {
+      if (requestInFlight) {
+        return;
+      }
+
+      const packet = buildPacket();
+      requestInFlight = true;
 
       try {
-        requestInFlight = true;
         const response = await fetch(createApiUrl(relayOrigin, publishEndpoint), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -799,14 +865,14 @@ export const PhoneSensorClient = () => {
         }
 
         const result = await response.json();
+        notePacketSent(time);
+
         if (!stopped) {
           setStatus('streaming');
-          setStatusDetail('');
-          setSentCount(count => count + 1);
           setListenerCount(result.listeners || 0);
         }
       } catch (error) {
-        if (!stopped) {
+        if (!stopped && useHttpFallback) {
           setStatus('relay-error');
           setStatusDetail(error.message);
         }
@@ -815,11 +881,68 @@ export const PhoneSensorClient = () => {
       }
     };
 
-    const tick = (time) => {
-      if (time - lastSend >= 33 && !requestInFlight) {
-        lastSend = time;
-        sendPacket();
+    const sendSocketPacket = (time) => {
+      if (!socketReady || socket?.readyState !== WebSocket.OPEN) {
+        return false;
       }
+
+      if (socket.bufferedAmount > maxSocketBufferedBytes) {
+        return false;
+      }
+
+      socket.send(JSON.stringify(buildPacket()));
+      notePacketSent(time);
+      return true;
+    };
+
+    try {
+      socket = new WebSocket(createSocketUrl(
+        relayOrigin,
+        `${socketEndpoint}?s=${encodeURIComponent(sessionId)}`
+      ));
+
+      socket.addEventListener('open', () => {
+        socketReady = true;
+        useHttpFallback = false;
+
+        if (!stopped) {
+          setStatus('streaming');
+          setStatusDetail('');
+        }
+      });
+      socket.addEventListener('message', updateSocketStats);
+      socket.addEventListener('error', () => {
+        socketReady = false;
+        useHttpFallback = true;
+      });
+      socket.addEventListener('close', () => {
+        socketReady = false;
+        useHttpFallback = true;
+
+        if (!stopped) {
+          setStatusDetail('Fast stream disconnected; using HTTP fallback.');
+        }
+      });
+    } catch (error) {
+      useHttpFallback = true;
+      console.warn('Motion socket could not start; using HTTP fallback.', error);
+    }
+
+    fallbackTimer = window.setTimeout(() => {
+      if (!socketReady) {
+        useHttpFallback = true;
+      }
+    }, 1500);
+
+    const tick = (time) => {
+      if (time - lastSend >= targetPublishIntervalMs) {
+        lastSend = time;
+
+        if (!sendSocketPacket(time) && useHttpFallback) {
+          sendHttpPacket(time);
+        }
+      }
+
       animationFrame = requestAnimationFrame(tick);
     };
 
@@ -828,8 +951,11 @@ export const PhoneSensorClient = () => {
     animationFrame = requestAnimationFrame(tick);
 
     return () => {
+      flushSentCount();
       stopped = true;
+      window.clearTimeout(fallbackTimer);
       cancelAnimationFrame(animationFrame);
+      socket?.close();
       window.removeEventListener('devicemotion', updateMotion);
       window.removeEventListener('deviceorientation', updateOrientation);
     };

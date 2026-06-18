@@ -3,6 +3,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import {
+  acceptWebSocket,
+  createWebSocketParser,
+  webSocketPath,
+  writeWebSocketJson,
+} from './server/websocket-relay.mjs'
 
 const certDir = path.resolve('.cert');
 const httpsKeyPath = path.join(certDir, 'motion-lab-local-key.pem');
@@ -68,7 +74,7 @@ const motionRelayPlugin = () => ({
 
     const getSession = (sessionId) => {
       if (!sessions.has(sessionId)) {
-        sessions.set(sessionId, { clients: new Set(), lastPacket: null });
+        sessions.set(sessionId, { clients: new Set(), lastPacket: null, publishers: new Set() });
       }
 
       return sessions.get(sessionId);
@@ -103,6 +109,89 @@ const motionRelayPlugin = () => ({
         }
       });
     };
+
+    const publishPacket = (sessionId, packet) => {
+      const session = getSession(sessionId);
+      const enrichedPacket = {
+        ...packet,
+        sessionId,
+        relayReceivedAt: Date.now(),
+      };
+      session.lastPacket = enrichedPacket;
+      broadcast(sessionId, 'sensor', enrichedPacket);
+
+      return {
+        packet: enrichedPacket,
+        listeners: session.clients.size,
+      };
+    };
+
+    const rejectUpgrade = (socket, statusCode, message) => {
+      socket.write(`HTTP/1.1 ${statusCode} ${message}\r\nConnection: close\r\n\r\n`);
+      socket.destroy();
+    };
+
+    const handleSocketUpgrade = (req, socket) => {
+      const url = new URL(req.url || '/', 'http://motion.local');
+
+      if (url.pathname !== webSocketPath) {
+        return;
+      }
+
+      const sessionId = url.searchParams.get('s');
+      if (!sessionId) {
+        rejectUpgrade(socket, 400, 'Bad Request');
+        return;
+      }
+
+      if (!acceptWebSocket(req, socket)) {
+        return;
+      }
+
+      const session = getSession(sessionId);
+      session.publishers.add(socket);
+      let lastStatsAt = 0;
+
+      writeWebSocketJson(socket, {
+        type: 'hello',
+        sessionId,
+        listeners: session.clients.size,
+        ...getOrigins(),
+      });
+
+      const parser = createWebSocketParser({
+        onText: (message) => {
+          const packet = JSON.parse(message);
+          const result = publishPacket(sessionId, {
+            ...packet,
+            sessionId,
+          });
+          const now = Date.now();
+
+          if (now - lastStatsAt >= 1000) {
+            lastStatsAt = now;
+            writeWebSocketJson(socket, {
+              type: 'stats',
+              listeners: result.listeners,
+              now,
+            });
+          }
+        },
+        onError: () => {
+          session.publishers.delete(socket);
+        },
+      });
+
+      socket.on('data', chunk => parser(chunk, socket));
+      socket.on('close', () => {
+        session.publishers.delete(socket);
+      });
+      socket.on('error', () => {
+        session.publishers.delete(socket);
+      });
+    };
+
+    server.httpServer?.on('upgrade', handleSocketUpgrade);
 
     server.middlewares.use('/api/motion', (req, res, next) => {
       setCorsHeaders(req, res);
@@ -178,15 +267,8 @@ const motionRelayPlugin = () => ({
           return;
         }
 
-        const session = getSession(sessionId);
-        const enrichedPacket = {
-          ...packet,
-          sessionId,
-          relayReceivedAt: Date.now(),
-        };
-        session.lastPacket = enrichedPacket;
-        broadcast(sessionId, 'sensor', enrichedPacket);
-        sendJson(res, 200, { ok: true, listeners: session.clients.size });
+        const result = publishPacket(sessionId, packet);
+        sendJson(res, 200, { ok: true, listeners: result.listeners });
       } catch (error) {
         sendJson(res, 400, { error: error.message || 'Invalid sensor packet' });
       }
