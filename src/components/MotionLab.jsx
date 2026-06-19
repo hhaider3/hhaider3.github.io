@@ -1867,6 +1867,7 @@ const MotionLab = () => {
   const [calibrateKey, setCalibrateKey] = useState(0);
   const [isStreamExpanded, setIsStreamExpanded] = useState(false);
   const [isPairPanelExpanded, setIsPairPanelExpanded] = useState(false);
+  const [isPairPanelDismissed, setIsPairPanelDismissed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const arrivalTimesRef = useRef([]);
 
@@ -1946,7 +1947,7 @@ const MotionLab = () => {
   const rotationRate = motion.rotationRate;
   const secureOrigin = config?.secure || window.isSecureContext;
   const isRelayAvailable = config?.relayAvailable !== false;
-  const showPairPanel = !isLive || isPairPanelExpanded;
+  const showPairPanel = (!isLive && !isPairPanelDismissed) || isPairPanelExpanded;
   const labClassName = [
     'motion-lab',
     showPairPanel ? '' : 'pair-hidden',
@@ -1962,7 +1963,18 @@ const MotionLab = () => {
     setCalibrateKey(key => key + 1);
     setIsStreamExpanded(false);
     setIsPairPanelExpanded(false);
+    setIsPairPanelDismissed(false);
     arrivalTimesRef.current = [];
+  };
+
+  const hidePairPanel = () => {
+    setIsPairPanelExpanded(false);
+    setIsPairPanelDismissed(true);
+  };
+
+  const showPairPanelFromViewport = () => {
+    setIsPairPanelExpanded(true);
+    setIsPairPanelDismissed(false);
   };
 
   return (
@@ -1977,7 +1989,7 @@ const MotionLab = () => {
               <small>Session {sessionId.toUpperCase()}</small>
             </div>
             <div className="motion-win7-controls">
-              <button type="button" aria-label="Minimize" onClick={() => setIsPairPanelExpanded(false)}>
+              <button type="button" aria-label="Close Motion Lab pairing panel" onClick={hidePairPanel}>
                 <Minus size={14} />
               </button>
             </div>
@@ -2026,11 +2038,20 @@ const MotionLab = () => {
             <span>3D Viewport</span>
             <small>{isLive ? 'Live' : relayStatus === 'unavailable' ? 'No relay' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</small>
           </div>
-          <div className="motion-win7-controls">
-            <button type="button" aria-label="Minimize">
-              <Minus size={14} />
-            </button>
-          </div>
+          {!isStreamExpanded && (
+            <div className="motion-win7-controls">
+              <button
+                type="button"
+                className="motion-titlebar-action"
+                onClick={() => setIsStreamExpanded(true)}
+                aria-controls="motion-sensor-stream"
+                aria-expanded={false}
+              >
+                <Gauge size={13} />
+                Show stream
+              </button>
+            </div>
+          )}
         </div>
         <div className="motion-win7-body motion-viewport-body">
           <PhoneSwordScene
@@ -2038,34 +2059,26 @@ const MotionLab = () => {
             calibrateKey={calibrateKey}
           />
           <div className="motion-scene-overlay">
-            <div className="motion-live-status">
-              <span className={`motion-live-dot ${isLive ? 'live' : ''}`} />
-              <strong>{isLive ? 'Live' : relayStatus === 'unavailable' ? 'No relay' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</strong>
-              <small>{Number.isFinite(packetAge) ? `${Math.round(packetAge)} ms ago` : relayStatus}</small>
-            </div>
-            <div className="motion-scene-actions">
-              {isLive && (
+            <div className="motion-scene-left">
+              <div className="motion-live-status">
+                <span className={`motion-live-dot ${isLive ? 'live' : ''}`} />
+                <strong>{isLive ? 'Live' : relayStatus === 'unavailable' ? 'No relay' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</strong>
+                <small>{Number.isFinite(packetAge) ? `${Math.round(packetAge)} ms ago` : relayStatus}</small>
+              </div>
+              {!showPairPanel && (
                 <button
                   type="button"
-                  className={`motion-overlay-button ${isPairPanelExpanded ? 'active' : ''}`}
-                  onClick={() => setIsPairPanelExpanded(expanded => !expanded)}
+                  className="motion-overlay-button"
+                  onClick={showPairPanelFromViewport}
                   aria-controls="motion-pair-panel"
-                  aria-expanded={showPairPanel}
+                  aria-expanded="false"
                 >
                   <Smartphone size={15} />
-                  {isPairPanelExpanded ? 'Hide QR' : 'Show QR'}
+                  Show QR
                 </button>
               )}
-              <button
-                type="button"
-                className={`motion-overlay-button ${isStreamExpanded ? 'active' : ''}`}
-                onClick={() => setIsStreamExpanded(expanded => !expanded)}
-                aria-controls="motion-sensor-stream"
-                aria-expanded={isStreamExpanded}
-              >
-                <Gauge size={15} />
-                {isStreamExpanded ? 'Hide stream' : 'Show stream'}
-              </button>
+            </div>
+            <div className="motion-scene-actions">
               <div className="motion-scene-readout">
                 <span>Hz {packetRate}</span>
                 <span>Packets {packetCount}</span>
