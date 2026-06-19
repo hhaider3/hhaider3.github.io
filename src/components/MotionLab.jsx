@@ -22,6 +22,7 @@ const defaultRelayUrl = 'https://motion-lab-relay.onrender.com';
 const configuredRelayUrl = import.meta.env.VITE_MOTION_RELAY_URL || defaultRelayUrl;
 const targetPublishIntervalMs = 1000 / 30;
 const maxSocketBufferedBytes = 256_000;
+const orientationReconnectGapMs = 1800;
 
 const createApiUrl = (origin, endpoint) => new URL(endpoint, origin).toString();
 
@@ -140,6 +141,21 @@ const formatVector = (vector, digits = 2) => (
 const getPacketOrientation = (packet) => packet?.orientation || {};
 const getPacketMotion = (packet) => packet?.motion || {};
 
+const hasUsableOrientationPacket = (packet) => {
+  const orientation = getPacketOrientation(packet);
+
+  return (
+    Number.isFinite(orientation.alpha)
+    && Number.isFinite(orientation.beta)
+    && Number.isFinite(orientation.gamma)
+  );
+};
+
+const getPacketTimestamp = (packet) => {
+  const timestamp = packet?.relayReceivedAt ?? packet?.sentAt;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
 const axisOptions = [
   { id: 'long', label: 'Long' },
   { id: 'screen', label: 'Screen' },
@@ -255,11 +271,7 @@ const setQuaternionFromDevice = (() => {
   return (targetQuaternion, packet) => {
     const orientation = getPacketOrientation(packet);
 
-    if (
-      !Number.isFinite(orientation.alpha)
-      || !Number.isFinite(orientation.beta)
-      || !Number.isFinite(orientation.gamma)
-    ) {
+    if (!hasUsableOrientationPacket(packet)) {
       return false;
     }
 
@@ -573,6 +585,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     const currentPosition = new THREE.Vector3();
     let hasBaseline = false;
     let lastCalibrationSignal = calibrationSignalRef.current;
+    let lastPacketTimestamp = 0;
     let lastAxisMode = '';
     let lastAxisFlipped = null;
     let animationFrame = 0;
@@ -598,6 +611,8 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       const hasOrientation = setQuaternionFromDevice(rawQuaternion, currentPacket);
       const nextAxisMode = axisModeRef.current;
       const nextAxisFlipped = isAxisFlippedRef.current;
+      const packetTimestamp = getPacketTimestamp(currentPacket);
+      let shouldSnapToBaseline = false;
 
       if (nextAxisMode !== lastAxisMode || nextAxisFlipped !== lastAxisFlipped) {
         lastAxisMode = nextAxisMode;
@@ -611,19 +626,36 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
 
       if (calibrationSignalRef.current !== lastCalibrationSignal) {
         lastCalibrationSignal = calibrationSignalRef.current;
-        if (hasOrientation) {
-          baselineInverse.copy(rawQuaternion).invert();
-          hasBaseline = true;
-        }
+        hasBaseline = false;
+      }
+
+      if (
+        hasOrientation
+        && packetTimestamp > 0
+        && lastPacketTimestamp > 0
+        && packetTimestamp - lastPacketTimestamp > orientationReconnectGapMs
+      ) {
+        hasBaseline = false;
+      }
+
+      if (packetTimestamp > lastPacketTimestamp) {
+        lastPacketTimestamp = packetTimestamp;
       }
 
       if (hasOrientation) {
-        if (hasBaseline) {
-          targetQuaternion.copy(baselineInverse).multiply(rawQuaternion);
-        } else {
-          targetQuaternion.copy(rawQuaternion);
+        if (!hasBaseline) {
+          baselineInverse.copy(rawQuaternion).invert();
+          hasBaseline = true;
+          shouldSnapToBaseline = true;
         }
-        rig.quaternion.slerp(targetQuaternion, 0.26);
+
+        targetQuaternion.copy(baselineInverse).multiply(rawQuaternion);
+
+        if (shouldSnapToBaseline) {
+          rig.quaternion.copy(targetQuaternion);
+        } else {
+          rig.quaternion.slerp(targetQuaternion, 0.26);
+        }
       } else {
         rig.rotation.y += delta * 0.45;
         rig.rotation.x = Math.sin(time / 1200) * 0.16;
@@ -987,9 +1019,13 @@ export const PhoneSensorClient = () => {
         </div>
 
         <div className="motion-phone-hero">
-          <Smartphone size={42} />
-          <h1>Phone Sender</h1>
-          <p>{sessionId ? `Motion Lab session ${sessionId.toUpperCase()}` : 'No session'}</p>
+          <div className="motion-phone-upright" aria-hidden="true">
+            <span />
+            <Smartphone size={52} />
+          </div>
+          <h1>Hold your phone like this</h1>
+          <p>Straight and vertical, top edge up. Start sensors in this pose so the sword begins upright.</p>
+          <small>{sessionId ? `Motion Lab session ${sessionId.toUpperCase()}` : 'No session'}</small>
         </div>
 
         {!window.isSecureContext && (
@@ -1175,6 +1211,7 @@ const MotionLab = () => {
     setLatestPacket(null);
     setPacketCount(0);
     setPacketRate(0);
+    setCalibrateKey(key => key + 1);
     setIsStreamExpanded(false);
     setIsPairPanelExpanded(false);
     arrivalTimesRef.current = [];
@@ -1197,6 +1234,11 @@ const MotionLab = () => {
           <div className="motion-url-box">
             <Link size={15} />
             <a href={phoneUrl} target="_blank" rel="noreferrer">{phoneUrl}</a>
+          </div>
+
+          <div className="motion-alignment-note">
+            <Smartphone size={16} />
+            <span>Hold the phone straight and vertical before starting sensors. The first live orientation packet becomes the sword's upright zero.</span>
           </div>
 
           <div className="motion-axis-control" aria-label="Sword hilt phone axis">

@@ -4557,6 +4557,26 @@ footer {
     color: #ffffff;
 }
 
+.motion-alignment-note {
+    min-height: 44px;
+    padding: 9px 10px;
+    border-left: 3px solid #ffd166;
+    border-radius: 8px;
+    background: rgba(255, 209, 102, 0.08);
+    color: rgba(255, 239, 206, 0.9);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.motion-alignment-note svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: #ffd166;
+}
+
 .motion-pair-actions,
 .motion-phone-controls {
     display: grid;
@@ -4875,21 +4895,77 @@ footer {
     text-align: center;
 }
 
+.motion-phone-upright {
+    position: relative;
+    width: 92px;
+    height: 126px;
+    display: grid;
+    place-items: center;
+}
+
+.motion-phone-upright::before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    bottom: 16px;
+    left: 50%;
+    border-left: 2px dashed rgba(255, 209, 102, 0.68);
+    transform: translateX(-50%);
+}
+
+.motion-phone-upright::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-right: 7px solid transparent;
+    border-bottom: 12px solid #ffd166;
+    border-left: 7px solid transparent;
+    filter: drop-shadow(0 0 10px rgba(255, 209, 102, 0.6));
+    transform: translateX(-50%);
+}
+
+.motion-phone-upright span {
+    position: absolute;
+    right: 16px;
+    bottom: 6px;
+    left: 16px;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(255, 209, 102, 0.72);
+}
+
 .motion-phone-hero svg {
+    position: relative;
+    z-index: 1;
     color: #19b8ff;
     filter: drop-shadow(0 0 14px rgba(25, 184, 255, 0.54));
 }
 
 .motion-phone-hero h1 {
     margin: 4px 0 0;
+    max-width: 340px;
     color: #f7fbff;
     font-size: 28px;
+    line-height: 1.08;
 }
 
 .motion-phone-hero p {
+    max-width: 320px;
     margin: 0;
     color: rgba(225, 236, 248, 0.62);
     font-size: 12px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.motion-phone-hero small {
+    margin-top: 3px;
+    color: rgba(225, 236, 248, 0.5);
+    font-size: 11px;
+    line-height: 1.25;
     overflow-wrap: anywhere;
 }
 
