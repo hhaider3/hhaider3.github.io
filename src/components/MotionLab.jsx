@@ -18,8 +18,8 @@ import { createQrPath } from '../utils/qrCode';
 const publishEndpoint = '/api/motion/publish';
 const socketEndpoint = '/api/motion/socket';
 const configEndpoint = '/api/motion/config';
-const defaultRelayUrl = 'https://motion-lab-relay.onrender.com';
-const configuredRelayUrl = import.meta.env.VITE_MOTION_RELAY_URL || defaultRelayUrl;
+const hostedRelayUrl = 'https://motion-lab-relay.onrender.com';
+const configuredRelayUrl = import.meta.env.VITE_MOTION_RELAY_URL || '';
 const targetPublishIntervalMs = 1000 / 30;
 const maxSocketBufferedBytes = 256_000;
 const orientationReconnectGapMs = 1800;
@@ -43,6 +43,29 @@ const normalizeOrigin = (value) => {
     return '';
   }
 };
+
+const isLocalNetworkOrigin = (origin = window.location.origin) => {
+  try {
+    const { hostname } = new URL(origin, window.location.origin);
+
+    return (
+      hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '[::1]'
+      || hostname.endsWith('.local')
+      || /^10\./.test(hostname)
+      || /^192\.168\./.test(hostname)
+      || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    );
+  } catch {
+    return false;
+  }
+};
+
+const getDefaultRelayOrigin = () => (
+  normalizeOrigin(configuredRelayUrl)
+  || (isLocalNetworkOrigin() ? window.location.origin : hostedRelayUrl)
+);
 
 const createSessionId = () => {
   if (window.crypto?.getRandomValues) {
@@ -87,7 +110,7 @@ const getHashParams = () => {
 
 const getRelayOrigin = () => {
   const relayParam = getSearchParams().get('relay') || getHashParams().get('relay');
-  const relayOrigin = normalizeOrigin(relayParam) || normalizeOrigin(configuredRelayUrl);
+  const relayOrigin = normalizeOrigin(relayParam) || getDefaultRelayOrigin();
 
   return relayOrigin || window.location.origin;
 };
@@ -113,14 +136,8 @@ const createPhoneUrl = (origin, sessionId, relayOrigin) => {
   const phoneUrl = new URL('/', origin);
   const hashParams = new URLSearchParams();
 
-  const relayIsConfiguredAtBuild = (
-    normalizeOrigin(configuredRelayUrl)
-    && normalizeOrigin(configuredRelayUrl) === normalizeOrigin(relayOrigin)
-  );
-
   if (
-    !relayIsConfiguredAtBuild
-    && normalizeOrigin(relayOrigin)
+    normalizeOrigin(relayOrigin)
     && normalizeOrigin(relayOrigin) !== normalizeOrigin(origin)
   ) {
     hashParams.set('relay', normalizeOrigin(relayOrigin));
@@ -169,22 +186,25 @@ const axisTargets = {
 };
 
 const swordRestPosition = new THREE.Vector3(0, -0.92, 0);
-const blockTravelDuration = 2.55;
+const blockTravelDuration = 3.2;
 const blockSpawnIntervalMs = 780;
 const maxActiveBlocks = 7;
 const slashTrailMinSpeed = 2.15;
 const slashCutMinSpeed = 2.85;
-const blockCutRadius = 0.42;
+const blockCutRadius = 0.36;
+const blockCoreSize = 0.5;
+const slashTrailTipStart = 0.68;
+const swordFloorY = -1.36;
 
 const blockLaneConfigs = [
-  { id: 'right', color: 0xff2d55, hit: new THREE.Vector3(1.92, 0.22, 0.12) },
-  { id: 'top-right', color: 0x2f80ff, hit: new THREE.Vector3(1.26, 1.08, 0.12) },
+  { id: 'right', color: 0xff2d55, hit: new THREE.Vector3(1.92, -0.38, 0.12) },
+  { id: 'top-right', color: 0x2f80ff, hit: new THREE.Vector3(1.26, 0.82, 0.12) },
   { id: 'top', color: 0xa855f7, hit: new THREE.Vector3(0, 1.52, 0.12) },
-  { id: 'top-left', color: 0xd946ef, hit: new THREE.Vector3(-1.26, 1.08, 0.12) },
-  { id: 'left', color: 0x18f5ff, hit: new THREE.Vector3(-1.92, 0.22, 0.12) },
+  { id: 'top-left', color: 0xd946ef, hit: new THREE.Vector3(-1.26, 0.82, 0.12) },
+  { id: 'left', color: 0x18f5ff, hit: new THREE.Vector3(-1.92, -0.38, 0.12) },
 ].map((lane) => ({
   ...lane,
-  start: new THREE.Vector3(lane.hit.x * 1.18, lane.hit.y * 1.18 + 0.08, -3.05),
+  start: new THREE.Vector3(lane.hit.x * 1.24, lane.hit.y - 2.15, -6.4),
 }));
 
 const slashTrailColors = [0x18f5ff, 0xa855f7, 0xff4fd8];
@@ -346,6 +366,210 @@ const createTaperedBladeGeometry = ({
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
+};
+
+const createRoundedBoxGeometry = ({
+  width,
+  height,
+  depth,
+  radius,
+  segments = 6,
+}) => {
+  const x = -width / 2;
+  const y = -height / 2;
+  const roundedRadius = Math.min(radius, width / 2, height / 2);
+  const shape = new THREE.Shape();
+
+  shape.moveTo(x + roundedRadius, y);
+  shape.lineTo(x + width - roundedRadius, y);
+  shape.quadraticCurveTo(x + width, y, x + width, y + roundedRadius);
+  shape.lineTo(x + width, y + height - roundedRadius);
+  shape.quadraticCurveTo(x + width, y + height, x + width - roundedRadius, y + height);
+  shape.lineTo(x + roundedRadius, y + height);
+  shape.quadraticCurveTo(x, y + height, x, y + height - roundedRadius);
+  shape.lineTo(x, y + roundedRadius);
+  shape.quadraticCurveTo(x, y, x + roundedRadius, y);
+
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: true,
+    bevelSegments: segments,
+    bevelSize: roundedRadius,
+    bevelThickness: roundedRadius,
+    curveSegments: segments,
+    steps: 1,
+  });
+  geometry.center();
+  geometry.computeVertexNormals();
+  return geometry;
+};
+
+/* ── Plane-based geometry slicer ─────────────────────────────────────────── */
+
+const sliceGeometry = (sourceGeometry, plane) => {
+  const posAttr = sourceGeometry.getAttribute('position');
+  const indexArray = sourceGeometry.index
+    ? sourceGeometry.index.array
+    : null;
+  const triCount = indexArray
+    ? indexArray.length / 3
+    : posAttr.count / 3;
+
+  const frontPositions = [];
+  const backPositions = [];
+  const frontCap = [];  // vertices lying on the plane (for capping)
+  const backCap = [];
+
+  const getVertex = (i) => new THREE.Vector3(
+    posAttr.getX(i),
+    posAttr.getY(i),
+    posAttr.getZ(i)
+  );
+
+  const classify = (vertex) => plane.distanceToPoint(vertex);
+
+  const interpolateEdge = (vertexA, vertexB, distA, distB) => {
+    const t = distA / (distA - distB);
+    return new THREE.Vector3().lerpVectors(vertexA, vertexB, t);
+  };
+
+  const pushTri = (target, a, b, c) => {
+    target.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+  };
+
+  for (let tri = 0; tri < triCount; tri++) {
+    const i0 = indexArray ? indexArray[tri * 3] : tri * 3;
+    const i1 = indexArray ? indexArray[tri * 3 + 1] : tri * 3 + 1;
+    const i2 = indexArray ? indexArray[tri * 3 + 2] : tri * 3 + 2;
+
+    const v0 = getVertex(i0);
+    const v1 = getVertex(i1);
+    const v2 = getVertex(i2);
+
+    const d0 = classify(v0);
+    const d1 = classify(v1);
+    const d2 = classify(v2);
+
+    const s0 = d0 >= 0 ? 1 : -1;
+    const s1 = d1 >= 0 ? 1 : -1;
+    const s2 = d2 >= 0 ? 1 : -1;
+
+    // All on front side
+    if (s0 >= 0 && s1 >= 0 && s2 >= 0) {
+      pushTri(frontPositions, v0, v1, v2);
+      continue;
+    }
+    // All on back side
+    if (s0 < 0 && s1 < 0 && s2 < 0) {
+      pushTri(backPositions, v0, v1, v2);
+      continue;
+    }
+
+    // Triangle straddles the plane — find the lone vertex
+    const verts = [v0, v1, v2];
+    const dists = [d0, d1, d2];
+    const signs = [s0, s1, s2];
+
+    // Find the vertex that is alone on one side
+    let loneIdx = -1;
+    if (signs[0] !== signs[1] && signs[0] !== signs[2]) loneIdx = 0;
+    else if (signs[1] !== signs[0] && signs[1] !== signs[2]) loneIdx = 1;
+    else loneIdx = 2;
+
+    const pairA = (loneIdx + 1) % 3;
+    const pairB = (loneIdx + 2) % 3;
+
+    const intA = interpolateEdge(verts[loneIdx], verts[pairA], dists[loneIdx], dists[pairA]);
+    const intB = interpolateEdge(verts[loneIdx], verts[pairB], dists[loneIdx], dists[pairB]);
+
+    const loneSide = signs[loneIdx] >= 0 ? frontPositions : backPositions;
+    const pairSide = signs[loneIdx] >= 0 ? backPositions : frontPositions;
+    const loneCap = signs[loneIdx] >= 0 ? frontCap : backCap;
+    const pairCapArr = signs[loneIdx] >= 0 ? backCap : frontCap;
+
+    // Lone vertex triangle
+    pushTri(loneSide, verts[loneIdx], intA, intB);
+    loneCap.push(intA.clone(), intB.clone());
+
+    // Pair side — two triangles (quad)
+    pushTri(pairSide, intA, verts[pairA], verts[pairB]);
+    pushTri(pairSide, intA, verts[pairB], intB);
+    pairCapArr.push(intA.clone(), intB.clone());
+  }
+
+  // Build cap face from intersection points
+  const buildCap = (points, flipNormal) => {
+    if (points.length < 4) return [];
+
+    // Compute centroid
+    const centroid = new THREE.Vector3();
+    points.forEach(p => centroid.add(p));
+    centroid.divideScalar(points.length);
+
+    // Build local 2D frame on the plane for sorting
+    const normal = plane.normal.clone();
+    if (flipNormal) normal.negate();
+
+    let refAxis = new THREE.Vector3(1, 0, 0);
+    if (Math.abs(normal.dot(refAxis)) > 0.9) {
+      refAxis = new THREE.Vector3(0, 1, 0);
+    }
+    const u = new THREE.Vector3().crossVectors(normal, refAxis).normalize();
+    const v = new THREE.Vector3().crossVectors(normal, u).normalize();
+
+    // Deduplicate points
+    const unique = [];
+    const seen = new Set();
+    for (const p of points) {
+      const key = `${(p.x * 1000) | 0},${(p.y * 1000) | 0},${(p.z * 1000) | 0}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(p);
+      }
+    }
+
+    if (unique.length < 3) return [];
+
+    // Sort by angle around centroid
+    unique.sort((a, b) => {
+      const da = a.clone().sub(centroid);
+      const db = b.clone().sub(centroid);
+      return Math.atan2(da.dot(v), da.dot(u)) - Math.atan2(db.dot(v), db.dot(u));
+    });
+
+    // Fan triangulation from centroid
+    const capPositions = [];
+    for (let i = 0; i < unique.length; i++) {
+      const next = unique[(i + 1) % unique.length];
+      pushTri(capPositions, centroid, unique[i], next);
+    }
+    return capPositions;
+  };
+
+  const frontCapTris = buildCap(frontCap, false);
+  const backCapTris = buildCap(backCap, true);
+
+  const buildResult = (positions, capTris) => {
+    const shellVertexCount = positions.length / 3;
+    const capVertexCount = capTris.length / 3;
+    const all = new Float32Array(positions.length + capTris.length);
+    all.set(positions);
+    all.set(capTris, positions.length);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(all, 3));
+    geo.computeVertexNormals();
+    // Group 0 = outer shell triangles, Group 1 = cap (inner cross-section) triangles
+    geo.addGroup(0, shellVertexCount, 0);
+    if (capVertexCount > 0) {
+      geo.addGroup(shellVertexCount, capVertexCount, 1);
+    }
+    return geo;
+  };
+
+  return {
+    front: buildResult(frontPositions, frontCapTris),
+    back: buildResult(backPositions, backCapTris),
+  };
 };
 
 const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
@@ -575,35 +799,102 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     scene.add(rig);
 
     const grid = new THREE.GridHelper(7, 14, 0x1fd6ff, 0x16314a);
-    grid.position.y = -1.32;
+    grid.position.y = swordFloorY;
     grid.material.transparent = true;
-    grid.material.opacity = 0.32;
+    grid.material.opacity = 0.22;
     scene.add(grid);
 
-    const ringGroup = new THREE.Group();
-    [1.2, 1.9, 2.6].forEach((radius, index) => {
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(radius, 0.006, 8, 96),
-        new THREE.MeshBasicMaterial({
-          color: index === 1 ? 0xffd166 : 0x19b8ff,
-          transparent: true,
-          opacity: 0.22,
-          blending: THREE.AdditiveBlending,
-        })
-      );
-      ring.rotation.x = Math.PI / 2;
-      ring.position.y = -1.3 + index * 0.18;
-      ringGroup.add(ring);
-    });
-    scene.add(ringGroup);
+    const floorGroup = new THREE.Group();
+    const floorSurface = new THREE.Mesh(
+      trackGeometry(new THREE.PlaneGeometry(4.8, 8.2)),
+      trackMaterial(new THREE.MeshBasicMaterial({
+        color: 0x061426,
+        transparent: true,
+        opacity: 0.44,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }))
+    );
+    floorSurface.rotation.x = -Math.PI / 2;
+    floorSurface.position.set(0, swordFloorY - 0.018, -1.58);
 
-    const laneMarkerGeometry = trackGeometry(new THREE.TorusGeometry(0.34, 0.008, 8, 72));
-    const blockCoreGeometry = trackGeometry(new THREE.BoxGeometry(0.58, 0.58, 0.18, 1, 1, 1));
-    const blockGlowGeometry = trackGeometry(new THREE.BoxGeometry(0.78, 0.78, 0.08, 1, 1, 1));
-    const blockPieceGeometry = trackGeometry(new THREE.BoxGeometry(0.28, 0.58, 0.18, 1, 1, 1));
-    const blockCutFaceGeometry = trackGeometry(new THREE.PlaneGeometry(0.065, 0.64));
+    const floorCenterStrip = new THREE.Mesh(
+      trackGeometry(new THREE.PlaneGeometry(0.1, 8.2)),
+      trackMaterial(new THREE.MeshBasicMaterial({
+        color: 0x18f5ff,
+        transparent: true,
+        opacity: 0.14,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }))
+    );
+    floorCenterStrip.rotation.x = -Math.PI / 2;
+    floorCenterStrip.position.set(0, swordFloorY - 0.006, -1.58);
+
+    const laneLinePositions = [];
+    [-2.25, -1.12, 0, 1.12, 2.25].forEach((xPosition) => {
+      laneLinePositions.push(
+        xPosition, swordFloorY + 0.006, -5.68,
+        xPosition, swordFloorY + 0.006, 2.52
+      );
+    });
+    [-5.68, -3.64, -1.58, 0.48, 2.52].forEach((zPosition) => {
+      laneLinePositions.push(
+        -2.4, swordFloorY + 0.006, zPosition,
+        2.4, swordFloorY + 0.006, zPosition
+      );
+    });
+    const floorLaneLines = new THREE.LineSegments(
+      trackGeometry(new THREE.BufferGeometry().setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(laneLinePositions, 3)
+      )),
+      trackMaterial(new THREE.LineBasicMaterial({
+        color: 0x65e7ff,
+        transparent: true,
+        opacity: 0.34,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }))
+    );
+
+    const swordFloorBase = new THREE.Mesh(
+      trackGeometry(new THREE.CircleGeometry(0.18, 32)),
+      trackMaterial(new THREE.MeshBasicMaterial({
+        color: 0x18f5ff,
+        transparent: true,
+        opacity: 0.26,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }))
+    );
+    swordFloorBase.rotation.x = -Math.PI / 2;
+
+    const swordFloorTip = new THREE.Mesh(
+      trackGeometry(new THREE.CircleGeometry(0.13, 32)),
+      trackMaterial(new THREE.MeshBasicMaterial({
+        color: 0xfff1a8,
+        transparent: true,
+        opacity: 0.38,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }))
+    );
+    swordFloorTip.rotation.x = -Math.PI / 2;
+
+    floorGroup.add(floorSurface, floorCenterStrip, floorLaneLines, swordFloorBase, swordFloorTip);
+    scene.add(floorGroup);
+
+    const blockCoreGeometry = trackGeometry(createRoundedBoxGeometry({
+      width: blockCoreSize,
+      height: blockCoreSize,
+      depth: blockCoreSize,
+      radius: 0.075,
+    }));
     const blockEdgeGeometry = trackGeometry(new THREE.EdgesGeometry(blockCoreGeometry));
-    const laneMarkerGroup = new THREE.Group();
     const blockGroup = new THREE.Group();
     const trailGroup = new THREE.Group();
     const activeBlocks = [];
@@ -617,26 +908,19 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     const segmentVector = new THREE.Vector3();
     const pointVector = new THREE.Vector3();
     const projectedPoint = new THREE.Vector3();
+    const cutPlane = new THREE.Plane();
+    const cutPlaneNormal = new THREE.Vector3();
+    const localStrikePoint = new THREE.Vector3();
+    const trailFromRoot = new THREE.Vector3();
+    const trailToRoot = new THREE.Vector3();
     const slashDirection = new THREE.Vector3();
     const splitNormal = new THREE.Vector3();
+    const cameraRight = new THREE.Vector3();
+    const cameraUp = new THREE.Vector3();
     let hasPreviousBlade = false;
     let nextBlockAt = performance.now() + 420;
     let nextLaneIndex = 0;
-
-    blockLaneConfigs.forEach((lane) => {
-      const markerMaterial = trackMaterial(new THREE.MeshBasicMaterial({
-        color: lane.color,
-        transparent: true,
-        opacity: 0.28,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }));
-      const marker = new THREE.Mesh(laneMarkerGeometry, markerMaterial);
-      marker.position.copy(lane.hit);
-      marker.scale.setScalar(0.82);
-      laneMarkerGroup.add(marker);
-    });
-    scene.add(laneMarkerGroup, blockGroup, trailGroup);
+    scene.add(blockGroup, trailGroup);
 
     const tagMaterialOpacity = (material) => {
       material.userData.baseOpacity = material.opacity;
@@ -654,6 +938,9 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     const disposeBlock = (block) => {
       blockGroup.remove(block.group);
       block.materials.forEach(material => material.dispose());
+      if (block.slicedGeometries) {
+        block.slicedGeometries.forEach(geo => geo.dispose());
+      }
       block.group.clear();
     };
 
@@ -673,6 +960,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       const lengthSq = segmentVector.lengthSq();
 
       if (lengthSq <= 0.0001) {
+        projectedPoint.copy(start);
         return point.distanceTo(start);
       }
 
@@ -689,48 +977,46 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       const color = new THREE.Color(lane.color);
       const group = new THREE.Group();
       const bodyMaterial = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
-        color,
-        metalness: 0.26,
-        roughness: 0.18,
+        color: 0x080e18,
+        metalness: 0.52,
+        roughness: 0.28,
         emissive: color,
-        emissiveIntensity: 1.15,
+        emissiveIntensity: 0.35,
         transparent: true,
-        opacity: 0.92,
-        clearcoat: 0.85,
-        clearcoatRoughness: 0.12,
-      }));
-      const glowMaterial = tagMaterialOpacity(new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.28,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
+        opacity: 0.94,
+        clearcoat: 0.9,
+        clearcoatRoughness: 0.14,
+        fog: false,
       }));
       const edgeLineMaterial = tagMaterialOpacity(new THREE.LineBasicMaterial({
-        color: color.clone().lerp(colorWhite, 0.42),
+        color: color.clone().lerp(colorWhite, 0.32),
         transparent: true,
-        opacity: 0.86,
+        opacity: 0.88,
+        fog: false,
       }));
-      const glow = new THREE.Mesh(blockGlowGeometry, glowMaterial);
       const body = new THREE.Mesh(blockCoreGeometry, bodyMaterial);
       const edges = new THREE.LineSegments(blockEdgeGeometry, edgeLineMaterial);
       body.rotation.set(Math.random() * 0.55, Math.random() * 0.35, Math.random() * Math.PI);
       edges.rotation.copy(body.rotation);
-      group.add(glow, body, edges);
+      group.add(body, edges);
       group.position.copy(lane.start);
-      group.scale.setScalar(0.42);
+      group.scale.setScalar(0.18);
       blockGroup.add(group);
 
+      const travelDuration = blockTravelDuration + Math.random() * 0.35;
+      const forwardVelocity = lane.hit.clone().sub(lane.start).divideScalar(travelDuration);
       activeBlocks.push({
         state: 'active',
         lane,
         group,
         body,
-        glow,
         edges,
-        materials: [bodyMaterial, glowMaterial, edgeLineMaterial],
+        materials: [bodyMaterial, edgeLineMaterial],
         progress: 0,
-        travelDuration: blockTravelDuration + Math.random() * 0.28,
+        travelDuration,
+        forwardVelocity,
+        cutVelocity: new THREE.Vector3(),
+        fallVelocity: 0,
         wobble: Math.random() * Math.PI * 2,
         spin: new THREE.Vector3(
           0.35 + Math.random() * 0.45,
@@ -745,74 +1031,161 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       });
     };
 
-    const cutBlock = (block, motionVector, intensity) => {
+    const cutBlock = (block, motionVector, intensity, strikePoint) => {
       block.state = 'cut';
       block.cutAge = 0;
-      block.cutLife = 0.82 + intensity * 0.24;
-      block.splitSpeed = 0.34 + intensity * 0.34;
+      block.cutLife = 1.18 + intensity * 0.34;
+      block.splitSpeed = 0.28 + intensity * 0.28;
       block.cutSpin = (Math.random() > 0.5 ? 1 : -1) * (0.4 + intensity * 0.85);
+      block.cutVelocity.copy(block.forwardVelocity).multiplyScalar(1.08 + intensity * 0.32);
+      block.cutVelocity.y = 0;
+      block.fallVelocity = -0.36 - intensity * 0.3;
       block.body.visible = false;
-      block.glow.visible = false;
       block.edges.visible = false;
 
-      if (motionVector.lengthSq() > 0.0001) {
-        slashDirection.copy(motionVector).normalize();
+      // Compute slash direction in screen-aligned space
+      cameraRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+      cameraUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+      slashDirection
+        .copy(cameraRight)
+        .multiplyScalar(motionVector.dot(cameraRight))
+        .addScaledVector(cameraUp, motionVector.dot(cameraUp));
+      slashDirection.z = 0;
+
+      if (slashDirection.lengthSq() > 0.0001) {
+        slashDirection.normalize();
+      } else if (motionVector.lengthSq() > 0.0001) {
+        slashDirection.copy(motionVector).setZ(0).normalize();
       } else {
         slashDirection.set(1, 0, 0);
       }
+
+      // splitNormal is perpendicular to the slash in the XY plane
       splitNormal.set(-slashDirection.y, slashDirection.x, 0);
       if (splitNormal.lengthSq() <= 0.0001) {
         splitNormal.set(1, 0, 0);
       }
       splitNormal.normalize();
+
+      // Transform the strike point into the block's local space to place the cut plane
+      const worldInverse = new THREE.Matrix4().copy(block.body.matrixWorld).invert();
+      localStrikePoint.copy(strikePoint).applyMatrix4(worldInverse);
+
+      // Build the cut plane in local body space
+      // The plane normal needs to be in local space too
+      cutPlaneNormal.copy(splitNormal);
+      // Transform normal direction from world to local (rotation only)
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldInverse);
+      cutPlaneNormal.applyMatrix3(normalMatrix).normalize();
+
+      // Plane constant: distance from origin along the normal to the strike point
+      const planeConstant = -localStrikePoint.dot(cutPlaneNormal);
+      cutPlane.set(cutPlaneNormal, planeConstant);
+
+      // Slice the block geometry
+      const sliced = sliceGeometry(blockCoreGeometry, cutPlane);
+
+      // Compute centroids for proper piece positioning
+      const getCentroid = (geo) => {
+        const pos = geo.getAttribute('position');
+        const c = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          c.x += pos.getX(i);
+          c.y += pos.getY(i);
+          c.z += pos.getZ(i);
+        }
+        return pos.count > 0 ? c.divideScalar(pos.count) : c;
+      };
+
+      const centroidFront = getCentroid(sliced.front);
+      const centroidBack = getCentroid(sliced.back);
+
+      // Center each piece geometry on its own centroid
+      const centerGeometry = (geo, centroid) => {
+        const pos = geo.getAttribute('position');
+        for (let i = 0; i < pos.count; i++) {
+          pos.setXYZ(i,
+            pos.getX(i) - centroid.x,
+            pos.getY(i) - centroid.y,
+            pos.getZ(i) - centroid.z
+          );
+        }
+        pos.needsUpdate = true;
+        geo.computeBoundingSphere();
+      };
+
+      centerGeometry(sliced.front, centroidFront);
+      centerGeometry(sliced.back, centroidBack);
+
+      // Orient the group so the split normal faces the x-axis (pieces fly apart on local x)
       block.group.rotation.z = Math.atan2(splitNormal.y, splitNormal.x);
 
       const color = new THREE.Color(block.lane.color);
       const hotColor = color.clone().lerp(colorWhite, 0.54);
-      const pieceMaterialA = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
-        color,
-        metalness: 0.18,
-        roughness: 0.14,
-        emissive: hotColor,
-        emissiveIntensity: 1.65 + intensity * 1.45,
+
+      // Outer shell material — identical to the uncut block body
+      const shellMaterialA = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
+        color: 0x080e18,
+        metalness: 0.52,
+        roughness: 0.28,
+        emissive: 0x000000,
+        emissiveIntensity: 0,
         transparent: true,
         opacity: 0.94,
-        clearcoat: 0.8,
+        clearcoat: 0.9,
+        clearcoatRoughness: 0.14,
+        fog: false,
+        side: THREE.DoubleSide,
       }));
-      const pieceMaterialB = pieceMaterialA.clone();
-      tagMaterialOpacity(pieceMaterialB);
-      const faceMaterialA = tagMaterialOpacity(new THREE.MeshBasicMaterial({
-        color: hotColor,
+      const shellMaterialB = shellMaterialA.clone();
+      tagMaterialOpacity(shellMaterialB);
+
+      // Inner cap material — bright glowing cross-section in the lane color
+      const capMaterialA = tagMaterialOpacity(new THREE.MeshBasicMaterial({
+        color: hotColor.clone().lerp(colorWhite, 0.38).multiplyScalar(2.5),
         transparent: true,
-        opacity: 0.96,
+        opacity: 1.0,
         blending: THREE.AdditiveBlending,
+        fog: false,
         side: THREE.DoubleSide,
         depthWrite: false,
+        toneMapped: false,
       }));
-      const faceMaterialB = faceMaterialA.clone();
-      tagMaterialOpacity(faceMaterialB);
-      const pieceA = new THREE.Mesh(blockPieceGeometry, pieceMaterialA);
-      const pieceB = new THREE.Mesh(blockPieceGeometry, pieceMaterialB);
-      const cutFaceA = new THREE.Mesh(blockCutFaceGeometry, faceMaterialA);
-      const cutFaceB = new THREE.Mesh(blockCutFaceGeometry, faceMaterialB);
-      pieceA.position.x = -0.15;
-      pieceB.position.x = 0.15;
-      cutFaceA.position.set(0.16, 0, 0.096);
-      cutFaceB.position.set(-0.16, 0, 0.096);
-      pieceA.add(cutFaceA);
-      pieceB.add(cutFaceB);
+      const capMaterialB = capMaterialA.clone();
+      tagMaterialOpacity(capMaterialB);
+
+      // Multi-material: index 0 = shell, index 1 = cap (matches geometry groups)
+      const pieceA = new THREE.Mesh(sliced.front, [shellMaterialA, capMaterialA]);
+      const pieceB = new THREE.Mesh(sliced.back, [shellMaterialB, capMaterialB]);
+
+      // Position each piece at its centroid offset
+      pieceA.position.copy(centroidFront);
+      pieceB.position.copy(centroidBack);
+
+      // Copy the body's local rotation so pieces start aligned with the original block
+      pieceA.rotation.copy(block.body.rotation);
+      pieceB.rotation.copy(block.body.rotation);
+
       block.group.add(pieceA, pieceB);
       block.pieces = [pieceA, pieceB];
-      block.materials.push(pieceMaterialA, pieceMaterialB, faceMaterialA, faceMaterialB);
+      block.pieceCentroids = [centroidFront.clone(), centroidBack.clone()];
+      block.splitNormal = splitNormal.clone();
+      block.materials.push(shellMaterialA, shellMaterialB, capMaterialA, capMaterialB);
+
+      // Track sliced geometries for disposal
+      block.slicedGeometries = [sliced.front, sliced.back];
     };
 
     const createTrailSegment = (fromBase, fromTip, toBase, toTip, intensity) => {
+      trailFromRoot.copy(fromBase).lerp(fromTip, slashTrailTipStart);
+      trailToRoot.copy(toBase).lerp(toTip, slashTrailTipStart);
+
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.Float32BufferAttribute([
-        fromBase.x, fromBase.y, fromBase.z,
+        trailFromRoot.x, trailFromRoot.y, trailFromRoot.z,
         fromTip.x, fromTip.y, fromTip.z,
         toTip.x, toTip.y, toTip.z,
-        toBase.x, toBase.y, toBase.z,
+        trailToRoot.x, trailToRoot.y, trailToRoot.z,
       ], 3));
       geometry.setIndex([0, 1, 2, 0, 2, 3]);
       geometry.computeVertexNormals();
@@ -858,24 +1231,28 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       }
     };
 
+    const updateSwordFloorProjection = () => {
+      swordFloorBase.position.set(bladeBaseWorld.x, swordFloorY + 0.044, bladeBaseWorld.z);
+      swordFloorTip.position.set(bladeTipWorld.x, swordFloorY + 0.048, bladeTipWorld.z);
+    };
+
     const updateActiveBlock = (block, time, delta, canCut, slashSpeed, slashIntensity) => {
       block.progress += delta / block.travelDuration;
-      const amount = THREE.MathUtils.clamp(block.progress, 0, 1);
-      const eased = 1 - Math.pow(1 - amount, 3);
-      block.group.position.lerpVectors(block.lane.start, block.lane.hit, eased);
-      block.group.scale.setScalar(0.42 + eased * 0.68 + Math.sin(time / 170 + block.wobble) * 0.018);
+      const travelAmount = block.progress;
+      const visibleAmount = THREE.MathUtils.clamp(block.progress, 0, 1);
+      block.group.position.lerpVectors(block.lane.start, block.lane.hit, travelAmount);
+      block.group.scale.setScalar(0.16 + visibleAmount * 0.58 + Math.sin(time / 170 + block.wobble) * 0.012);
       block.body.rotation.x += block.spin.x * delta;
       block.body.rotation.y += block.spin.y * delta;
       block.body.rotation.z += block.spin.z * delta;
       block.edges.rotation.copy(block.body.rotation);
-      block.glow.material.opacity = block.glow.material.userData.baseOpacity * (0.78 + Math.sin(time / 130 + block.wobble) * 0.22);
 
-      if (
-        canCut
-        && slashSpeed > slashCutMinSpeed
-        && getDistanceToSegment(block.group.position, bladeBaseWorld, bladeTipWorld) <= blockCutRadius
-      ) {
-        cutBlock(block, slashVector, slashIntensity);
+      if (canCut && slashSpeed > slashCutMinSpeed) {
+        const strikeDistance = getDistanceToSegment(block.group.position, bladeBaseWorld, bladeTipWorld);
+
+        if (strikeDistance <= blockCutRadius) {
+          cutBlock(block, slashVector, slashIntensity, projectedPoint);
+        }
       }
     };
 
@@ -885,23 +1262,36 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       const eased = 1 - Math.pow(1 - amount, 2);
 
       if (block.pieces.length === 2) {
-        block.pieces[0].position.x = -0.15 - eased * block.splitSpeed;
-        block.pieces[1].position.x = 0.15 + eased * block.splitSpeed;
-        block.pieces[0].position.y = Math.sin(amount * Math.PI) * 0.08 - eased * eased * 0.18;
-        block.pieces[1].position.y = Math.sin(amount * Math.PI) * 0.06 - eased * eased * 0.24;
-        block.pieces[0].rotation.z = -eased * 0.72;
-        block.pieces[1].rotation.z = eased * 0.72;
+        // Reset to centroid positions each frame, then push apart
+        block.pieces[0].position.copy(block.pieceCentroids[0]);
+        block.pieces[1].position.copy(block.pieceCentroids[1]);
+
+        // Push apart along the block's stored split normal
+        const splitOffset = eased * block.splitSpeed;
+        const bsn = block.splitNormal;
+        const dot0 = block.pieceCentroids[0].dot(bsn);
+        const dot1 = block.pieceCentroids[1].dot(bsn);
+        const sign0 = dot0 >= dot1 ? 1 : -1;
+
+        block.pieces[0].position.addScaledVector(bsn, sign0 * splitOffset);
+        block.pieces[1].position.addScaledVector(bsn, -sign0 * splitOffset);
+
+        block.pieces[0].position.y += Math.sin(amount * Math.PI) * 0.06;
+        block.pieces[1].position.y += Math.sin(amount * Math.PI) * 0.04;
+        block.pieces[0].rotation.z += -delta * 1.8;
+        block.pieces[1].rotation.z += delta * 1.8;
       }
 
-      block.group.position.z += delta * 0.28;
+      block.fallVelocity -= 1.9 * delta;
+      block.group.position.addScaledVector(block.cutVelocity, delta);
+      block.group.position.y += block.fallVelocity * delta;
       block.group.rotation.z += block.cutSpin * delta;
       fadeBlockMaterials(block, 1 - amount);
     };
 
     const updateBlocks = (time, delta, canCut, slashSpeed, slashIntensity) => {
       if (time >= nextBlockAt && activeBlocks.length < maxActiveBlocks) {
-        createBlock(blockLaneConfigs[nextLaneIndex % blockLaneConfigs.length]);
-        nextLaneIndex += 1;
+        createBlock(blockLaneConfigs[Math.floor(Math.random() * blockLaneConfigs.length)]);
         nextBlockAt = time + blockSpawnIntervalMs * (0.78 + Math.random() * 0.48);
       }
 
@@ -1022,6 +1412,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       bladeTipWorld.set(0, 0, bladeTipZ);
       sword.localToWorld(bladeBaseWorld);
       sword.localToWorld(bladeTipWorld);
+      updateSwordFloorProjection();
 
       const rotationRate = getPacketMotion(currentPacket).rotationRate || {};
       const gyroSpeed = Math.hypot(
@@ -1060,7 +1451,6 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       bladeGlow.scale.set(glowPulse, glowPulse, 1);
       guardGlow.scale.set(1, 1 + Math.sin(time / 220) * 0.025, 1);
       pivotGlow.scale.setScalar(1 + Math.sin(time / 150) * 0.18);
-      ringGroup.rotation.z += delta * 0.15;
       renderer.render(scene, camera);
       animationFrame = requestAnimationFrame(animate);
     };
