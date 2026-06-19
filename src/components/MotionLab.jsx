@@ -6,12 +6,14 @@ import {
   Compass,
   Gauge,
   Link,
+  Minus,
   Play,
   RadioTower,
   RefreshCw,
   Smartphone,
   Square,
   Wifi,
+  X,
 } from 'lucide-react';
 import { createQrPath } from '../utils/qrCode';
 
@@ -171,18 +173,6 @@ const hasUsableOrientationPacket = (packet) => {
 const getPacketTimestamp = (packet) => {
   const timestamp = packet?.relayReceivedAt ?? packet?.sentAt;
   return Number.isFinite(timestamp) ? timestamp : 0;
-};
-
-const axisOptions = [
-  { id: 'long', label: 'Long' },
-  { id: 'screen', label: 'Screen' },
-  { id: 'side', label: 'Side' },
-];
-
-const axisTargets = {
-  long: new THREE.Vector3(0, 1, 0),
-  screen: new THREE.Vector3(0, 0, 1),
-  side: new THREE.Vector3(1, 0, 0),
 };
 
 const swordRestPosition = new THREE.Vector3(0, -0.92, 0);
@@ -471,10 +461,11 @@ const sliceGeometry = (sourceGeometry, plane) => {
     const signs = [s0, s1, s2];
 
     // Find the vertex that is alone on one side
-    let loneIdx = -1;
-    if (signs[0] !== signs[1] && signs[0] !== signs[2]) loneIdx = 0;
-    else if (signs[1] !== signs[0] && signs[1] !== signs[2]) loneIdx = 1;
-    else loneIdx = 2;
+    const loneIdx = signs[0] !== signs[1] && signs[0] !== signs[2]
+      ? 0
+      : signs[1] !== signs[0] && signs[1] !== signs[2]
+        ? 1
+        : 2;
 
     const pairA = (loneIdx + 1) % 3;
     const pairB = (loneIdx + 2) % 3;
@@ -572,24 +563,14 @@ const sliceGeometry = (sourceGeometry, plane) => {
   };
 };
 
-const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
+const PhoneSwordScene = ({ packet, calibrateKey }) => {
   const mountRef = useRef(null);
   const packetRef = useRef(packet);
-  const axisModeRef = useRef(axisMode);
-  const isAxisFlippedRef = useRef(isAxisFlipped);
   const calibrationSignalRef = useRef(0);
 
   useEffect(() => {
     packetRef.current = packet;
   }, [packet]);
-
-  useEffect(() => {
-    axisModeRef.current = axisMode;
-  }, [axisMode]);
-
-  useEffect(() => {
-    isAxisFlippedRef.current = isAxisFlipped;
-  }, [isAxisFlipped]);
 
   useEffect(() => {
     calibrationSignalRef.current += 1;
@@ -634,6 +615,10 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
 
     const rig = new THREE.Group();
     const sword = new THREE.Group();
+    sword.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 1, 0)
+    );
     const bladeBaseZ = 0.5;
     const bladeTipZ = 3.08;
     const hiltCenterZ = -0.08;
@@ -919,7 +904,6 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     const cameraUp = new THREE.Vector3();
     let hasPreviousBlade = false;
     let nextBlockAt = performance.now() + 420;
-    let nextLaneIndex = 0;
     scene.add(blockGroup, trailGroup);
 
     const tagMaterialOpacity = (material) => {
@@ -1317,15 +1301,11 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     const rawQuaternion = new THREE.Quaternion();
     const targetQuaternion = new THREE.Quaternion();
     const baselineInverse = new THREE.Quaternion();
-    const baseSwordAxis = new THREE.Vector3(0, 0, 1);
-    const targetSwordAxis = new THREE.Vector3();
     const targetPosition = new THREE.Vector3();
     const currentPosition = new THREE.Vector3();
     let hasBaseline = false;
     let lastCalibrationSignal = calibrationSignalRef.current;
     let lastPacketTimestamp = 0;
-    let lastAxisMode = '';
-    let lastAxisFlipped = null;
     let animationFrame = 0;
     let lastTime = performance.now();
 
@@ -1347,20 +1327,8 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       lastTime = time;
       const currentPacket = packetRef.current;
       const hasOrientation = setQuaternionFromDevice(rawQuaternion, currentPacket);
-      const nextAxisMode = axisModeRef.current;
-      const nextAxisFlipped = isAxisFlippedRef.current;
       const packetTimestamp = getPacketTimestamp(currentPacket);
       let shouldSnapToBaseline = false;
-
-      if (nextAxisMode !== lastAxisMode || nextAxisFlipped !== lastAxisFlipped) {
-        lastAxisMode = nextAxisMode;
-        lastAxisFlipped = nextAxisFlipped;
-        targetSwordAxis.copy(axisTargets[nextAxisMode] || axisTargets.long);
-        if (nextAxisFlipped) {
-          targetSwordAxis.multiplyScalar(-1);
-        }
-        sword.quaternion.setFromUnitVectors(baseSwordAxis, targetSwordAxis.normalize());
-      }
 
       if (calibrationSignalRef.current !== lastCalibrationSignal) {
         lastCalibrationSignal = calibrationSignalRef.current;
@@ -1897,8 +1865,6 @@ const MotionLab = () => {
   const [packetCount, setPacketCount] = useState(0);
   const [packetRate, setPacketRate] = useState(0);
   const [calibrateKey, setCalibrateKey] = useState(0);
-  const [axisMode, setAxisMode] = useState('long');
-  const [isAxisFlipped, setIsAxisFlipped] = useState(false);
   const [isStreamExpanded, setIsStreamExpanded] = useState(false);
   const [isPairPanelExpanded, setIsPairPanelExpanded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -2002,146 +1968,155 @@ const MotionLab = () => {
   return (
     <section className={labClassName}>
       {showPairPanel && (
-        <div className="motion-host-panel motion-pair-panel" id="motion-pair-panel">
-          <div className="motion-panel-heading">
-            <span className="motion-heading-icon"><Smartphone size={20} /></span>
-            <div>
-              <h2>Motion Lab</h2>
-              <p>Session {sessionId.toUpperCase()}</p>
+        <div className="motion-win7-window motion-pair-panel" id="motion-pair-panel">
+          <div className="motion-win7-glow" aria-hidden="true" />
+          <div className="motion-win7-titlebar">
+            <div className="motion-win7-title">
+              <span className="motion-win7-favicon accent-blue"><Smartphone size={14} /></span>
+              <span>Motion Lab</span>
+              <small>Session {sessionId.toUpperCase()}</small>
+            </div>
+            <div className="motion-win7-controls">
+              <button type="button" aria-label="Minimize" onClick={() => setIsPairPanelExpanded(false)}>
+                <Minus size={14} />
+              </button>
             </div>
           </div>
+          <div className="motion-win7-body">
+            <QrCode value={phoneUrl} />
 
-          <QrCode value={phoneUrl} />
+            <div className="motion-url-box">
+              <Link size={15} />
+              <a href={phoneUrl} target="_blank" rel="noreferrer">{phoneUrl}</a>
+            </div>
 
-          <div className="motion-url-box">
-            <Link size={15} />
-            <a href={phoneUrl} target="_blank" rel="noreferrer">{phoneUrl}</a>
-          </div>
+            <div className="motion-alignment-note">
+              <span>Hold the phone straight and vertical before starting sensors. The first live orientation packet becomes the sword's upright zero.</span>
+            </div>
 
-          <div className="motion-alignment-note">
-            <Smartphone size={16} />
-            <span>Hold the phone straight and vertical before starting sensors. The first live orientation packet becomes the sword's upright zero.</span>
-          </div>
-
-          <div className="motion-axis-control" aria-label="Sword hilt phone axis">
-            {axisOptions.map(option => (
-              <button
-                key={option.id}
-                type="button"
-                className={axisMode === option.id ? 'active' : ''}
-                onClick={() => setAxisMode(option.id)}
-              >
-                {option.label}
+            <div className="motion-pair-actions">
+              <button type="button" className="motion-secondary-button" onClick={resetSession}>
+                <RefreshCw size={16} />
+                New session
               </button>
-            ))}
-          </div>
+              <button type="button" className="motion-secondary-button" onClick={() => setCalibrateKey(key => key + 1)}>
+                <Compass size={16} />
+                Calibrate
+              </button>
+            </div>
 
-          <div className="motion-pair-actions">
-            <button type="button" className="motion-secondary-button" onClick={resetSession}>
-              <RefreshCw size={16} />
-              New session
-            </button>
-            <button type="button" className="motion-secondary-button" onClick={() => setCalibrateKey(key => key + 1)}>
-              <Compass size={16} />
-              Calibrate
-            </button>
-            <button type="button" className="motion-secondary-button" onClick={() => setIsAxisFlipped(flipped => !flipped)}>
-              <RefreshCw size={16} />
-              Flip tip
-            </button>
-          </div>
-
-          <div className="motion-context-list">
-            <span className={secureOrigin ? 'ok' : 'warn'}>
-              {secureOrigin ? 'Trusted origin' : 'HTTPS needed for phone sensors'}
-            </span>
-            <span>{config?.lanOrigins?.[0] ? 'LAN address detected' : 'Using current origin'}</span>
-            <span className={isRelayAvailable ? 'ok' : 'warn'}>
-              {isRelayAvailable ? 'Local relay ready' : 'Relay unavailable on static hosting'}
-            </span>
+            <div className="motion-context-list">
+              <span className={secureOrigin ? 'ok' : 'warn'}>
+                {secureOrigin ? 'Trusted origin' : 'HTTPS needed for phone sensors'}
+              </span>
+              <span>{config?.lanOrigins?.[0] ? 'LAN address detected' : 'Using current origin'}</span>
+              <span className={isRelayAvailable ? 'ok' : 'warn'}>
+                {isRelayAvailable ? 'Local relay ready' : 'Relay unavailable on static hosting'}
+              </span>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="motion-viewport-panel">
-        <PhoneSwordScene
-          packet={latestPacket}
-          calibrateKey={calibrateKey}
-          axisMode={axisMode}
-          isAxisFlipped={isAxisFlipped}
-        />
-        <div className="motion-scene-overlay">
-          <div className="motion-live-status">
-            <span className={`motion-live-dot ${isLive ? 'live' : ''}`} />
-            <strong>{isLive ? 'Live' : relayStatus === 'unavailable' ? 'No relay' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</strong>
-            <small>{Number.isFinite(packetAge) ? `${Math.round(packetAge)} ms ago` : relayStatus}</small>
+      <div className="motion-win7-window motion-viewport-panel">
+        <div className="motion-win7-glow" aria-hidden="true" />
+        <div className="motion-win7-titlebar">
+          <div className="motion-win7-title">
+            <span className="motion-win7-favicon accent-cyan"><RadioTower size={14} /></span>
+            <span>3D Viewport</span>
+            <small>{isLive ? 'Live' : relayStatus === 'unavailable' ? 'No relay' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</small>
           </div>
-          <div className="motion-scene-actions">
-            {isLive && (
+          <div className="motion-win7-controls">
+            <button type="button" aria-label="Minimize">
+              <Minus size={14} />
+            </button>
+          </div>
+        </div>
+        <div className="motion-win7-body motion-viewport-body">
+          <PhoneSwordScene
+            packet={latestPacket}
+            calibrateKey={calibrateKey}
+          />
+          <div className="motion-scene-overlay">
+            <div className="motion-live-status">
+              <span className={`motion-live-dot ${isLive ? 'live' : ''}`} />
+              <strong>{isLive ? 'Live' : relayStatus === 'unavailable' ? 'No relay' : relayStatus === 'reconnecting' ? 'Waiting' : 'Ready'}</strong>
+              <small>{Number.isFinite(packetAge) ? `${Math.round(packetAge)} ms ago` : relayStatus}</small>
+            </div>
+            <div className="motion-scene-actions">
+              {isLive && (
+                <button
+                  type="button"
+                  className={`motion-overlay-button ${isPairPanelExpanded ? 'active' : ''}`}
+                  onClick={() => setIsPairPanelExpanded(expanded => !expanded)}
+                  aria-controls="motion-pair-panel"
+                  aria-expanded={showPairPanel}
+                >
+                  <Smartphone size={15} />
+                  {isPairPanelExpanded ? 'Hide QR' : 'Show QR'}
+                </button>
+              )}
               <button
                 type="button"
-                className={`motion-overlay-button ${isPairPanelExpanded ? 'active' : ''}`}
-                onClick={() => setIsPairPanelExpanded(expanded => !expanded)}
-                aria-controls="motion-pair-panel"
-                aria-expanded={showPairPanel}
+                className={`motion-overlay-button ${isStreamExpanded ? 'active' : ''}`}
+                onClick={() => setIsStreamExpanded(expanded => !expanded)}
+                aria-controls="motion-sensor-stream"
+                aria-expanded={isStreamExpanded}
               >
-                <Smartphone size={15} />
-                {isPairPanelExpanded ? 'Hide QR' : 'Show QR'}
+                <Gauge size={15} />
+                {isStreamExpanded ? 'Hide stream' : 'Show stream'}
               </button>
-            )}
-            <button
-              type="button"
-              className={`motion-overlay-button ${isStreamExpanded ? 'active' : ''}`}
-              onClick={() => setIsStreamExpanded(expanded => !expanded)}
-              aria-controls="motion-sensor-stream"
-              aria-expanded={isStreamExpanded}
-            >
-              <Gauge size={15} />
-              {isStreamExpanded ? 'Hide stream' : 'Show stream'}
-            </button>
-            <div className="motion-scene-readout">
-              <span>Hz {packetRate}</span>
-              <span>Packets {packetCount}</span>
+              <div className="motion-scene-readout">
+                <span>Hz {packetRate}</span>
+                <span>Packets {packetCount}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {isStreamExpanded && (
-        <div className="motion-host-panel motion-data-panel" id="motion-sensor-stream">
-          <div className="motion-panel-heading">
-            <span className="motion-heading-icon"><Gauge size={20} /></span>
-            <div>
-              <h2>Sensor Stream</h2>
-              <p>{latestPacket?.seen?.orientation || latestPacket?.seen?.motion ? 'Phone sensors active' : 'No phone packets yet'}</p>
+        <div className="motion-win7-window motion-data-panel" id="motion-sensor-stream">
+          <div className="motion-win7-glow" aria-hidden="true" />
+          <div className="motion-win7-titlebar">
+            <div className="motion-win7-title">
+              <span className="motion-win7-favicon accent-violet"><Gauge size={14} /></span>
+              <span>Sensor Stream</span>
+              <small>{latestPacket?.seen?.orientation || latestPacket?.seen?.motion ? 'Phone sensors active' : 'No phone packets yet'}</small>
+            </div>
+            <div className="motion-win7-controls">
+              <button type="button" aria-label="Close" className="motion-win7-close" onClick={() => setIsStreamExpanded(false)}>
+                <X size={14} />
+              </button>
             </div>
           </div>
-
-          <div className="motion-telemetry-grid">
-            <TelemetryTile
-              label="Orientation"
-              value={`${formatMetric(orientation.alpha)} deg`}
-              detail={`beta ${formatMetric(orientation.beta)} / gamma ${formatMetric(orientation.gamma)}`}
-              icon={<Compass size={16} />}
-            />
-            <TelemetryTile
-              label="Accel"
-              value={formatVector(acceleration)}
-              detail="m/s2, linear"
-              icon={<Activity size={16} />}
-            />
-            <TelemetryTile
-              label="Gravity"
-              value={formatVector(accelerationWithGravity)}
-              detail="m/s2, total"
-              icon={<Wifi size={16} />}
-            />
-            <TelemetryTile
-              label="Gyro"
-              value={`${formatMetric(rotationRate?.alpha)} / ${formatMetric(rotationRate?.beta)} / ${formatMetric(rotationRate?.gamma)}`}
-              detail="deg/s alpha beta gamma"
-              icon={<RadioTower size={16} />}
-            />
+          <div className="motion-win7-body">
+            <div className="motion-telemetry-grid">
+              <TelemetryTile
+                label="Orientation"
+                value={`${formatMetric(orientation.alpha)} deg`}
+                detail={`beta ${formatMetric(orientation.beta)} / gamma ${formatMetric(orientation.gamma)}`}
+                icon={<Compass size={16} />}
+              />
+              <TelemetryTile
+                label="Accel"
+                value={formatVector(acceleration)}
+                detail="m/s2, linear"
+                icon={<Activity size={16} />}
+              />
+              <TelemetryTile
+                label="Gravity"
+                value={formatVector(accelerationWithGravity)}
+                detail="m/s2, total"
+                icon={<Wifi size={16} />}
+              />
+              <TelemetryTile
+                label="Gyro"
+                value={`${formatMetric(rotationRate?.alpha)} / ${formatMetric(rotationRate?.beta)} / ${formatMetric(rotationRate?.gamma)}`}
+                detail="deg/s alpha beta gamma"
+                icon={<RadioTower size={16} />}
+              />
+            </div>
           </div>
         </div>
       )}

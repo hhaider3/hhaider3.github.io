@@ -4453,57 +4453,141 @@ footer {
     grid-template-columns: minmax(360px, 1fr) minmax(280px, 340px);
 }
 
-.motion-host-panel,
-.motion-viewport-panel {
+.motion-win7-window {
     min-width: 0;
     min-height: 0;
-    border: 1px solid rgba(159, 214, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.42);
     border-radius: 8px;
-    background: rgba(7, 15, 28, 0.74);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 40px rgba(0, 0, 0, 0.26);
-}
-
-.motion-host-panel {
-    padding: 14px;
+    background:
+        linear-gradient(180deg, rgba(150, 200, 240, 0.34), rgba(35, 85, 135, 0.18) 38px, rgba(7, 15, 28, 0.96) 38px),
+        rgba(7, 15, 28, 0.96);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        0 18px 40px rgba(0, 0, 0, 0.38);
     display: flex;
     flex-direction: column;
-    gap: 12px;
     overflow: hidden;
 }
 
-.motion-panel-heading {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
+.motion-win7-glow {
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    z-index: 1;
 }
 
-.motion-heading-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, rgba(25, 184, 255, 0.96), rgba(20, 214, 180, 0.86));
-    color: #03101a;
+.motion-win7-titlebar {
+    min-height: 34px;
+    padding: 5px 6px 5px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    color: #e8f0ff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+.motion-win7-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.motion-win7-title small {
+    color: rgba(200, 220, 240, 0.55);
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 2px;
+}
+
+.motion-win7-favicon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
 }
 
-.motion-panel-heading h2 {
-    margin: 0;
-    color: #f7fbff;
-    font-size: 18px;
-    line-height: 1.1;
+.motion-win7-favicon svg {
+    width: 13px;
+    height: 13px;
 }
 
-.motion-panel-heading p {
-    margin: 2px 0 0;
-    color: rgba(224, 236, 247, 0.62);
-    font-size: 12px;
-    line-height: 1.25;
-    overflow-wrap: anywhere;
+.motion-win7-controls {
+    display: flex;
+    align-items: flex-start;
+    height: 21px;
+    border: 1px solid rgba(100, 140, 180, 0.52);
+    border-radius: 0 0 4px 4px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
+
+.motion-win7-controls button {
+    width: 30px;
+    height: 21px;
+    border: 0;
+    border-right: 1px solid rgba(80, 120, 160, 0.36);
+    color: #dce8f4;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(120, 170, 220, 0.52), rgba(60, 100, 150, 0.38));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.42);
+}
+
+.motion-win7-controls button:last-child {
+    border-right: 0;
+}
+
+.motion-win7-controls button:hover {
+    background: linear-gradient(180deg, rgba(160, 200, 240, 0.62), rgba(80, 130, 180, 0.52));
+    color: #ffffff;
+}
+
+.motion-win7-controls .motion-win7-close {
+    width: 38px;
+    color: #fff;
+    background: linear-gradient(180deg, #e99b86, #c9452e 56%, #8b1e17);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.motion-win7-controls .motion-win7-close:hover {
+    background: linear-gradient(180deg, #ffb59f, #e65b3e 56%, #a5251c);
+}
+
+.motion-win7-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.motion-viewport-panel {
+    position: relative;
+}
+
+.motion-viewport-body {
+    position: relative;
+    padding: 0;
+    overflow: hidden;
+}
+
+.motion-data-panel {
+    overflow: hidden;
+}
+
 
 .motion-qr {
     width: min(100%, 260px);
@@ -4558,23 +4642,22 @@ footer {
 }
 
 .motion-alignment-note {
-    min-height: 44px;
-    padding: 9px 10px;
-    border-left: 3px solid #ffd166;
+    min-height: 0;
+    padding: 10px 11px;
+    border: 1px solid rgba(25, 184, 255, 0.16);
     border-radius: 8px;
-    background: rgba(255, 209, 102, 0.08);
-    color: rgba(255, 239, 206, 0.9);
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    background: rgba(25, 184, 255, 0.07);
+    color: rgba(232, 243, 255, 0.84);
+    display: block;
     font-size: 12px;
-    line-height: 1.35;
+    font-weight: 600;
+    line-height: 1.45;
 }
 
-.motion-alignment-note svg {
-    flex-shrink: 0;
-    margin-top: 1px;
-    color: #ffd166;
+.motion-alignment-note span {
+    display: block;
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .motion-pair-actions,
@@ -4582,39 +4665,6 @@ footer {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
-}
-
-.motion-axis-control {
-    min-height: 36px;
-    padding: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 3px;
-}
-
-.motion-axis-control button {
-    min-width: 0;
-    min-height: 28px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: rgba(232, 243, 255, 0.68);
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.motion-axis-control button:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #f7fbff;
-}
-
-.motion-axis-control button.active {
-    background: linear-gradient(135deg, #19b8ff, #14d6b4);
-    color: #03101a;
 }
 
 .motion-primary-button,
@@ -4678,11 +4728,6 @@ footer {
 
 .motion-context-list .warn {
     color: #ffd166;
-}
-
-.motion-viewport-panel {
-    position: relative;
-    overflow: hidden;
 }
 
 .motion-scene {
@@ -4790,10 +4835,6 @@ footer {
     border-color: rgba(25, 184, 255, 0.44);
     background: rgba(11, 24, 40, 0.82);
     color: #f8fbff;
-}
-
-.motion-data-panel {
-    overflow: auto;
 }
 
 .motion-telemetry-grid,
