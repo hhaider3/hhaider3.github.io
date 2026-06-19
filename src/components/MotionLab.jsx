@@ -168,6 +168,27 @@ const axisTargets = {
   side: new THREE.Vector3(1, 0, 0),
 };
 
+const swordRestPosition = new THREE.Vector3(0, -0.92, 0);
+const blockTravelDuration = 2.55;
+const blockSpawnIntervalMs = 780;
+const maxActiveBlocks = 7;
+const slashTrailMinSpeed = 2.15;
+const slashCutMinSpeed = 2.85;
+const blockCutRadius = 0.42;
+
+const blockLaneConfigs = [
+  { id: 'right', color: 0xff2d55, hit: new THREE.Vector3(1.92, 0.22, 0.12) },
+  { id: 'top-right', color: 0x2f80ff, hit: new THREE.Vector3(1.26, 1.08, 0.12) },
+  { id: 'top', color: 0xa855f7, hit: new THREE.Vector3(0, 1.52, 0.12) },
+  { id: 'top-left', color: 0xd946ef, hit: new THREE.Vector3(-1.26, 1.08, 0.12) },
+  { id: 'left', color: 0x18f5ff, hit: new THREE.Vector3(-1.92, 0.22, 0.12) },
+].map((lane) => ({
+  ...lane,
+  start: new THREE.Vector3(lane.hit.x * 1.18, lane.hit.y * 1.18 + 0.08, -3.05),
+}));
+
+const slashTrailColors = [0x18f5ff, 0xa855f7, 0xff4fd8];
+
 const requestSensorPermission = async () => {
   const requests = [];
 
@@ -576,6 +597,333 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
     });
     scene.add(ringGroup);
 
+    const laneMarkerGeometry = trackGeometry(new THREE.TorusGeometry(0.34, 0.008, 8, 72));
+    const blockCoreGeometry = trackGeometry(new THREE.BoxGeometry(0.58, 0.58, 0.18, 1, 1, 1));
+    const blockGlowGeometry = trackGeometry(new THREE.BoxGeometry(0.78, 0.78, 0.08, 1, 1, 1));
+    const blockPieceGeometry = trackGeometry(new THREE.BoxGeometry(0.28, 0.58, 0.18, 1, 1, 1));
+    const blockCutFaceGeometry = trackGeometry(new THREE.PlaneGeometry(0.065, 0.64));
+    const blockEdgeGeometry = trackGeometry(new THREE.EdgesGeometry(blockCoreGeometry));
+    const laneMarkerGroup = new THREE.Group();
+    const blockGroup = new THREE.Group();
+    const trailGroup = new THREE.Group();
+    const activeBlocks = [];
+    const trailSegments = [];
+    const colorWhite = new THREE.Color(0xffffff);
+    const bladeBaseWorld = new THREE.Vector3();
+    const bladeTipWorld = new THREE.Vector3();
+    const previousBladeBase = new THREE.Vector3();
+    const previousBladeTip = new THREE.Vector3();
+    const slashVector = new THREE.Vector3();
+    const segmentVector = new THREE.Vector3();
+    const pointVector = new THREE.Vector3();
+    const projectedPoint = new THREE.Vector3();
+    const slashDirection = new THREE.Vector3();
+    const splitNormal = new THREE.Vector3();
+    let hasPreviousBlade = false;
+    let nextBlockAt = performance.now() + 420;
+    let nextLaneIndex = 0;
+
+    blockLaneConfigs.forEach((lane) => {
+      const markerMaterial = trackMaterial(new THREE.MeshBasicMaterial({
+        color: lane.color,
+        transparent: true,
+        opacity: 0.28,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }));
+      const marker = new THREE.Mesh(laneMarkerGeometry, markerMaterial);
+      marker.position.copy(lane.hit);
+      marker.scale.setScalar(0.82);
+      laneMarkerGroup.add(marker);
+    });
+    scene.add(laneMarkerGroup, blockGroup, trailGroup);
+
+    const tagMaterialOpacity = (material) => {
+      material.userData.baseOpacity = material.opacity;
+      return material;
+    };
+
+    const fadeBlockMaterials = (block, amount) => {
+      block.materials.forEach((material) => {
+        if (Number.isFinite(material.userData.baseOpacity)) {
+          material.opacity = material.userData.baseOpacity * amount;
+        }
+      });
+    };
+
+    const disposeBlock = (block) => {
+      blockGroup.remove(block.group);
+      block.materials.forEach(material => material.dispose());
+      block.group.clear();
+    };
+
+    const disposeTrailSegment = (segment) => {
+      trailGroup.remove(segment.mesh);
+      segment.geometry.dispose();
+      segment.material.dispose();
+    };
+
+    const removeTrailSegment = (index) => {
+      disposeTrailSegment(trailSegments[index]);
+      trailSegments.splice(index, 1);
+    };
+
+    const getDistanceToSegment = (point, start, end) => {
+      segmentVector.copy(end).sub(start);
+      const lengthSq = segmentVector.lengthSq();
+
+      if (lengthSq <= 0.0001) {
+        return point.distanceTo(start);
+      }
+
+      const amount = THREE.MathUtils.clamp(
+        pointVector.copy(point).sub(start).dot(segmentVector) / lengthSq,
+        0,
+        1
+      );
+      projectedPoint.copy(start).addScaledVector(segmentVector, amount);
+      return projectedPoint.distanceTo(point);
+    };
+
+    const createBlock = (lane) => {
+      const color = new THREE.Color(lane.color);
+      const group = new THREE.Group();
+      const bodyMaterial = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
+        color,
+        metalness: 0.26,
+        roughness: 0.18,
+        emissive: color,
+        emissiveIntensity: 1.15,
+        transparent: true,
+        opacity: 0.92,
+        clearcoat: 0.85,
+        clearcoatRoughness: 0.12,
+      }));
+      const glowMaterial = tagMaterialOpacity(new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.28,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }));
+      const edgeLineMaterial = tagMaterialOpacity(new THREE.LineBasicMaterial({
+        color: color.clone().lerp(colorWhite, 0.42),
+        transparent: true,
+        opacity: 0.86,
+      }));
+      const glow = new THREE.Mesh(blockGlowGeometry, glowMaterial);
+      const body = new THREE.Mesh(blockCoreGeometry, bodyMaterial);
+      const edges = new THREE.LineSegments(blockEdgeGeometry, edgeLineMaterial);
+      body.rotation.set(Math.random() * 0.55, Math.random() * 0.35, Math.random() * Math.PI);
+      edges.rotation.copy(body.rotation);
+      group.add(glow, body, edges);
+      group.position.copy(lane.start);
+      group.scale.setScalar(0.42);
+      blockGroup.add(group);
+
+      activeBlocks.push({
+        state: 'active',
+        lane,
+        group,
+        body,
+        glow,
+        edges,
+        materials: [bodyMaterial, glowMaterial, edgeLineMaterial],
+        progress: 0,
+        travelDuration: blockTravelDuration + Math.random() * 0.28,
+        wobble: Math.random() * Math.PI * 2,
+        spin: new THREE.Vector3(
+          0.35 + Math.random() * 0.45,
+          0.22 + Math.random() * 0.38,
+          0.36 + Math.random() * 0.52
+        ),
+        cutAge: 0,
+        cutLife: 0,
+        splitSpeed: 0,
+        cutSpin: 0,
+        pieces: [],
+      });
+    };
+
+    const cutBlock = (block, motionVector, intensity) => {
+      block.state = 'cut';
+      block.cutAge = 0;
+      block.cutLife = 0.82 + intensity * 0.24;
+      block.splitSpeed = 0.34 + intensity * 0.34;
+      block.cutSpin = (Math.random() > 0.5 ? 1 : -1) * (0.4 + intensity * 0.85);
+      block.body.visible = false;
+      block.glow.visible = false;
+      block.edges.visible = false;
+
+      if (motionVector.lengthSq() > 0.0001) {
+        slashDirection.copy(motionVector).normalize();
+      } else {
+        slashDirection.set(1, 0, 0);
+      }
+      splitNormal.set(-slashDirection.y, slashDirection.x, 0);
+      if (splitNormal.lengthSq() <= 0.0001) {
+        splitNormal.set(1, 0, 0);
+      }
+      splitNormal.normalize();
+      block.group.rotation.z = Math.atan2(splitNormal.y, splitNormal.x);
+
+      const color = new THREE.Color(block.lane.color);
+      const hotColor = color.clone().lerp(colorWhite, 0.54);
+      const pieceMaterialA = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
+        color,
+        metalness: 0.18,
+        roughness: 0.14,
+        emissive: hotColor,
+        emissiveIntensity: 1.65 + intensity * 1.45,
+        transparent: true,
+        opacity: 0.94,
+        clearcoat: 0.8,
+      }));
+      const pieceMaterialB = pieceMaterialA.clone();
+      tagMaterialOpacity(pieceMaterialB);
+      const faceMaterialA = tagMaterialOpacity(new THREE.MeshBasicMaterial({
+        color: hotColor,
+        transparent: true,
+        opacity: 0.96,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }));
+      const faceMaterialB = faceMaterialA.clone();
+      tagMaterialOpacity(faceMaterialB);
+      const pieceA = new THREE.Mesh(blockPieceGeometry, pieceMaterialA);
+      const pieceB = new THREE.Mesh(blockPieceGeometry, pieceMaterialB);
+      const cutFaceA = new THREE.Mesh(blockCutFaceGeometry, faceMaterialA);
+      const cutFaceB = new THREE.Mesh(blockCutFaceGeometry, faceMaterialB);
+      pieceA.position.x = -0.15;
+      pieceB.position.x = 0.15;
+      cutFaceA.position.set(0.16, 0, 0.096);
+      cutFaceB.position.set(-0.16, 0, 0.096);
+      pieceA.add(cutFaceA);
+      pieceB.add(cutFaceB);
+      block.group.add(pieceA, pieceB);
+      block.pieces = [pieceA, pieceB];
+      block.materials.push(pieceMaterialA, pieceMaterialB, faceMaterialA, faceMaterialB);
+    };
+
+    const createTrailSegment = (fromBase, fromTip, toBase, toTip, intensity) => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute([
+        fromBase.x, fromBase.y, fromBase.z,
+        fromTip.x, fromTip.y, fromTip.z,
+        toTip.x, toTip.y, toTip.z,
+        toBase.x, toBase.y, toBase.z,
+      ], 3));
+      geometry.setIndex([0, 1, 2, 0, 2, 3]);
+      geometry.computeVertexNormals();
+
+      const color = slashTrailColors[Math.min(
+        slashTrailColors.length - 1,
+        Math.floor(intensity * slashTrailColors.length)
+      )];
+      const material = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.18 + intensity * 0.42,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      trailGroup.add(mesh);
+      trailSegments.push({
+        mesh,
+        geometry,
+        material,
+        age: 0,
+        life: 0.26 + intensity * 0.18,
+        baseOpacity: material.opacity,
+      });
+
+      if (trailSegments.length > 34) {
+        removeTrailSegment(0);
+      }
+    };
+
+    const updateTrailSegments = (delta) => {
+      for (let index = trailSegments.length - 1; index >= 0; index -= 1) {
+        const segment = trailSegments[index];
+        segment.age += delta;
+        const amount = THREE.MathUtils.clamp(1 - segment.age / segment.life, 0, 1);
+        segment.material.opacity = segment.baseOpacity * amount * amount;
+
+        if (amount <= 0) {
+          removeTrailSegment(index);
+        }
+      }
+    };
+
+    const updateActiveBlock = (block, time, delta, canCut, slashSpeed, slashIntensity) => {
+      block.progress += delta / block.travelDuration;
+      const amount = THREE.MathUtils.clamp(block.progress, 0, 1);
+      const eased = 1 - Math.pow(1 - amount, 3);
+      block.group.position.lerpVectors(block.lane.start, block.lane.hit, eased);
+      block.group.scale.setScalar(0.42 + eased * 0.68 + Math.sin(time / 170 + block.wobble) * 0.018);
+      block.body.rotation.x += block.spin.x * delta;
+      block.body.rotation.y += block.spin.y * delta;
+      block.body.rotation.z += block.spin.z * delta;
+      block.edges.rotation.copy(block.body.rotation);
+      block.glow.material.opacity = block.glow.material.userData.baseOpacity * (0.78 + Math.sin(time / 130 + block.wobble) * 0.22);
+
+      if (
+        canCut
+        && slashSpeed > slashCutMinSpeed
+        && getDistanceToSegment(block.group.position, bladeBaseWorld, bladeTipWorld) <= blockCutRadius
+      ) {
+        cutBlock(block, slashVector, slashIntensity);
+      }
+    };
+
+    const updateCutBlock = (block, delta) => {
+      block.cutAge += delta;
+      const amount = THREE.MathUtils.clamp(block.cutAge / block.cutLife, 0, 1);
+      const eased = 1 - Math.pow(1 - amount, 2);
+
+      if (block.pieces.length === 2) {
+        block.pieces[0].position.x = -0.15 - eased * block.splitSpeed;
+        block.pieces[1].position.x = 0.15 + eased * block.splitSpeed;
+        block.pieces[0].position.y = Math.sin(amount * Math.PI) * 0.08 - eased * eased * 0.18;
+        block.pieces[1].position.y = Math.sin(amount * Math.PI) * 0.06 - eased * eased * 0.24;
+        block.pieces[0].rotation.z = -eased * 0.72;
+        block.pieces[1].rotation.z = eased * 0.72;
+      }
+
+      block.group.position.z += delta * 0.28;
+      block.group.rotation.z += block.cutSpin * delta;
+      fadeBlockMaterials(block, 1 - amount);
+    };
+
+    const updateBlocks = (time, delta, canCut, slashSpeed, slashIntensity) => {
+      if (time >= nextBlockAt && activeBlocks.length < maxActiveBlocks) {
+        createBlock(blockLaneConfigs[nextLaneIndex % blockLaneConfigs.length]);
+        nextLaneIndex += 1;
+        nextBlockAt = time + blockSpawnIntervalMs * (0.78 + Math.random() * 0.48);
+      }
+
+      for (let index = activeBlocks.length - 1; index >= 0; index -= 1) {
+        const block = activeBlocks[index];
+
+        if (block.state === 'active') {
+          updateActiveBlock(block, time, delta, canCut, slashSpeed, slashIntensity);
+        } else {
+          updateCutBlock(block, delta);
+        }
+
+        if (
+          (block.state === 'active' && block.progress > 1.18)
+          || (block.state === 'cut' && block.cutAge >= block.cutLife)
+        ) {
+          disposeBlock(block);
+          activeBlocks.splice(index, 1);
+        }
+      }
+    };
+
     const rawQuaternion = new THREE.Quaternion();
     const targetQuaternion = new THREE.Quaternion();
     const baselineInverse = new THREE.Quaternion();
@@ -668,7 +1016,45 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
         THREE.MathUtils.clamp((acceleration.z || 0) * 0.035, -0.48, 0.48)
       );
       currentPosition.lerp(targetPosition, 0.16);
-      rig.position.copy(currentPosition);
+      rig.position.copy(swordRestPosition).add(currentPosition);
+
+      bladeBaseWorld.set(0, 0, bladeBaseZ);
+      bladeTipWorld.set(0, 0, bladeTipZ);
+      sword.localToWorld(bladeBaseWorld);
+      sword.localToWorld(bladeTipWorld);
+
+      const rotationRate = getPacketMotion(currentPacket).rotationRate || {};
+      const gyroSpeed = Math.hypot(
+        Number.isFinite(rotationRate.alpha) ? rotationRate.alpha : 0,
+        Number.isFinite(rotationRate.beta) ? rotationRate.beta : 0,
+        Number.isFinite(rotationRate.gamma) ? rotationRate.gamma : 0
+      );
+      let slashSpeed = 0;
+      let slashIntensity = 0;
+      let canCut = false;
+
+      if (hasOrientation && !shouldSnapToBaseline) {
+        if (hasPreviousBlade && delta > 0) {
+          slashVector.copy(bladeTipWorld).sub(previousBladeTip);
+          slashSpeed = (slashVector.length() / delta) + gyroSpeed * 0.006;
+          slashIntensity = THREE.MathUtils.clamp((slashSpeed - slashTrailMinSpeed) / 6.8, 0, 1);
+          canCut = slashSpeed > slashCutMinSpeed;
+
+          if (slashIntensity > 0.03) {
+            createTrailSegment(previousBladeBase, previousBladeTip, bladeBaseWorld, bladeTipWorld, slashIntensity);
+          }
+        }
+
+        previousBladeBase.copy(bladeBaseWorld);
+        previousBladeTip.copy(bladeTipWorld);
+        hasPreviousBlade = true;
+      } else {
+        slashVector.set(0, 0, 0);
+        hasPreviousBlade = false;
+      }
+
+      updateTrailSegments(delta);
+      updateBlocks(time, delta, canCut, slashSpeed, slashIntensity);
 
       const glowPulse = 1 + Math.sin(time / 180) * 0.018;
       bladeGlow.scale.set(glowPulse, glowPulse, 1);
@@ -685,6 +1071,12 @@ const PhoneSwordScene = ({ packet, calibrateKey, axisMode, isAxisFlipped }) => {
       cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
       mount.removeChild(renderer.domElement);
+      while (activeBlocks.length > 0) {
+        disposeBlock(activeBlocks.pop());
+      }
+      while (trailSegments.length > 0) {
+        disposeTrailSegment(trailSegments.pop());
+      }
       geometries.forEach(geometry => geometry.dispose());
       materials.forEach(material => material.dispose());
       grid.geometry.dispose();
