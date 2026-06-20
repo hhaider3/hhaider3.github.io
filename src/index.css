@@ -4769,6 +4769,7 @@ footer {
 }
 
 .motion-live-status,
+.motion-scoreboard,
 .motion-scene-readout {
     min-height: 38px;
     padding: 8px 10px;
@@ -4817,6 +4818,34 @@ footer {
 .motion-live-dot.live {
     background: #34d399;
     box-shadow: 0 0 18px rgba(52, 211, 153, 0.9);
+}
+
+.motion-scoreboard {
+    min-width: 152px;
+    color: rgba(245, 250, 255, 0.84);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    text-align: right;
+}
+
+.motion-scoreboard span {
+    display: grid;
+    gap: 1px;
+}
+
+.motion-scoreboard small {
+    color: rgba(225, 236, 248, 0.58);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.motion-scoreboard strong {
+    color: #f8fbff;
+    font-size: 17px;
+    line-height: 1;
 }
 
 .motion-scene-readout {

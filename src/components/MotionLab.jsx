@@ -177,13 +177,16 @@ const getPacketTimestamp = (packet) => {
 
 const swordRestPosition = new THREE.Vector3(0, -0.92, 0);
 const blockTravelDuration = 3.2;
-const blockSpawnIntervalMs = 780;
+const blockFirstSpawnDelayMs = 900;
+const blockSpawnStartIntervalMs = 1450;
+const blockSpawnMinIntervalMs = 680;
+const blockSpawnRampDurationMs = 90_000;
 const maxActiveBlocks = 7;
-const slashTrailMinSpeed = 2.15;
+const slashTrailMinSpeed = 4.2;
+const slashTrailVisibleMinIntensity = 0.14;
 const slashCutMinSpeed = 2.85;
-const blockCutRadius = 0.36;
-const blockCoreSize = 0.5;
-const slashTrailTipStart = 0.68;
+const blockCutRadius = 0.47;
+const blockCoreSize = 0.62;
 const swordFloorY = -1.36;
 
 const blockLaneConfigs = [
@@ -563,14 +566,19 @@ const sliceGeometry = (sourceGeometry, plane) => {
   };
 };
 
-const PhoneSwordScene = ({ packet, calibrateKey }) => {
+const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
   const mountRef = useRef(null);
   const packetRef = useRef(packet);
+  const onBlockScoredRef = useRef(onBlockScored);
   const calibrationSignalRef = useRef(0);
 
   useEffect(() => {
     packetRef.current = packet;
   }, [packet]);
+
+  useEffect(() => {
+    onBlockScoredRef.current = onBlockScored;
+  }, [onBlockScored]);
 
   useEffect(() => {
     calibrationSignalRef.current += 1;
@@ -595,12 +603,16 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
     renderer.setClearColor(0x050912, 1);
     mount.appendChild(renderer.domElement);
 
-    const ambient = new THREE.AmbientLight(0xbfdfff, 1.4);
-    const keyLight = new THREE.PointLight(0x18d7ff, 36, 9);
+    const ambient = new THREE.AmbientLight(0xd9ecff, 1.75);
+    const keyLight = new THREE.PointLight(0x18d7ff, 48, 10);
     keyLight.position.set(2.3, 2.7, 2.8);
-    const roseLight = new THREE.PointLight(0xff5ea8, 18, 7);
+    const roseLight = new THREE.PointLight(0xff5ea8, 22, 8);
     roseLight.position.set(-2.7, -0.8, 2.2);
-    scene.add(ambient, keyLight, roseLight);
+    const violetLight = new THREE.PointLight(0x9b5cff, 34, 9);
+    violetLight.position.set(-2.1, 2.4, -1.7);
+    const laneLight = new THREE.PointLight(0x18f5ff, 26, 11);
+    laneLight.position.set(0, -0.7, -2.1);
+    scene.add(ambient, keyLight, roseLight, violetLight, laneLight);
 
     const geometries = [];
     const materials = [];
@@ -793,9 +805,9 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
     const floorSurface = new THREE.Mesh(
       trackGeometry(new THREE.PlaneGeometry(4.8, 8.2)),
       trackMaterial(new THREE.MeshBasicMaterial({
-        color: 0x061426,
+        color: 0x071a34,
         transparent: true,
-        opacity: 0.44,
+        opacity: 0.58,
         depthWrite: false,
         side: THREE.DoubleSide,
       }))
@@ -804,11 +816,11 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
     floorSurface.position.set(0, swordFloorY - 0.018, -1.58);
 
     const floorCenterStrip = new THREE.Mesh(
-      trackGeometry(new THREE.PlaneGeometry(0.1, 8.2)),
+      trackGeometry(new THREE.PlaneGeometry(0.16, 8.2)),
       trackMaterial(new THREE.MeshBasicMaterial({
-        color: 0x18f5ff,
+        color: 0x2cf8ff,
         transparent: true,
-        opacity: 0.14,
+        opacity: 0.26,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
@@ -830,15 +842,26 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
         2.4, swordFloorY + 0.006, zPosition
       );
     });
+    const floorLaneGeometry = trackGeometry(new THREE.BufferGeometry().setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(laneLinePositions, 3)
+    ));
     const floorLaneLines = new THREE.LineSegments(
-      trackGeometry(new THREE.BufferGeometry().setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute(laneLinePositions, 3)
-      )),
+      floorLaneGeometry,
       trackMaterial(new THREE.LineBasicMaterial({
-        color: 0x65e7ff,
+        color: 0x20f5ff,
         transparent: true,
-        opacity: 0.34,
+        opacity: 0.82,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }))
+    );
+    const floorLaneGlow = new THREE.LineSegments(
+      floorLaneGeometry,
+      trackMaterial(new THREE.LineBasicMaterial({
+        color: 0xa855f7,
+        transparent: true,
+        opacity: 0.42,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }))
@@ -870,7 +893,7 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
     );
     swordFloorTip.rotation.x = -Math.PI / 2;
 
-    floorGroup.add(floorSurface, floorCenterStrip, floorLaneLines, swordFloorBase, swordFloorTip);
+    floorGroup.add(floorSurface, floorCenterStrip, floorLaneGlow, floorLaneLines, swordFloorBase, swordFloorTip);
     scene.add(floorGroup);
 
     const blockCoreGeometry = trackGeometry(createRoundedBoxGeometry({
@@ -896,14 +919,13 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
     const cutPlane = new THREE.Plane();
     const cutPlaneNormal = new THREE.Vector3();
     const localStrikePoint = new THREE.Vector3();
-    const trailFromRoot = new THREE.Vector3();
-    const trailToRoot = new THREE.Vector3();
     const slashDirection = new THREE.Vector3();
     const splitNormal = new THREE.Vector3();
     const cameraRight = new THREE.Vector3();
     const cameraUp = new THREE.Vector3();
     let hasPreviousBlade = false;
-    let nextBlockAt = performance.now() + 420;
+    const gameStartAt = performance.now();
+    let nextBlockAt = gameStartAt + blockFirstSpawnDelayMs;
     scene.add(blockGroup, trailGroup);
 
     const tagMaterialOpacity = (material) => {
@@ -926,6 +948,10 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
         block.slicedGeometries.forEach(geo => geo.dispose());
       }
       block.group.clear();
+    };
+
+    const scoreBlock = (result) => {
+      onBlockScoredRef.current?.(result);
     };
 
     const disposeTrailSegment = (segment) => {
@@ -1017,6 +1043,7 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
 
     const cutBlock = (block, motionVector, intensity, strikePoint) => {
       block.state = 'cut';
+      scoreBlock('hit');
       block.cutAge = 0;
       block.cutLife = 1.18 + intensity * 0.34;
       block.splitSpeed = 0.28 + intensity * 0.28;
@@ -1106,14 +1133,15 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
 
       const color = new THREE.Color(block.lane.color);
       const hotColor = color.clone().lerp(colorWhite, 0.54);
+      const shellColor = color.clone().lerp(colorWhite, 0.16);
 
-      // Outer shell material — identical to the uncut block body
+      // Keep sliced pieces colored so hits read as split cubes, not dark debris.
       const shellMaterialA = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
-        color: 0x080e18,
-        metalness: 0.52,
-        roughness: 0.28,
-        emissive: 0x000000,
-        emissiveIntensity: 0,
+        color: shellColor,
+        metalness: 0.38,
+        roughness: 0.24,
+        emissive: color.clone(),
+        emissiveIntensity: 0.48,
         transparent: true,
         opacity: 0.94,
         clearcoat: 0.9,
@@ -1160,36 +1188,28 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
       block.slicedGeometries = [sliced.front, sliced.back];
     };
 
-    const createTrailSegment = (fromBase, fromTip, toBase, toTip, intensity) => {
-      trailFromRoot.copy(fromBase).lerp(fromTip, slashTrailTipStart);
-      trailToRoot.copy(toBase).lerp(toTip, slashTrailTipStart);
-
+    const createTrailSegment = (fromTip, toTip, intensity) => {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.Float32BufferAttribute([
-        trailFromRoot.x, trailFromRoot.y, trailFromRoot.z,
         fromTip.x, fromTip.y, fromTip.z,
         toTip.x, toTip.y, toTip.z,
-        trailToRoot.x, trailToRoot.y, trailToRoot.z,
       ], 3));
-      geometry.setIndex([0, 1, 2, 0, 2, 3]);
-      geometry.computeVertexNormals();
 
       const color = slashTrailColors[Math.min(
         slashTrailColors.length - 1,
         Math.floor(intensity * slashTrailColors.length)
       )];
-      const material = new THREE.MeshBasicMaterial({
+      const material = new THREE.LineBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.18 + intensity * 0.42,
+        opacity: 0.38 + intensity * 0.44,
         blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
         depthWrite: false,
       });
-      const mesh = new THREE.Mesh(geometry, material);
-      trailGroup.add(mesh);
+      const line = new THREE.Line(geometry, material);
+      trailGroup.add(line);
       trailSegments.push({
-        mesh,
+        mesh: line,
         geometry,
         material,
         age: 0,
@@ -1225,7 +1245,7 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
       const travelAmount = block.progress;
       const visibleAmount = THREE.MathUtils.clamp(block.progress, 0, 1);
       block.group.position.lerpVectors(block.lane.start, block.lane.hit, travelAmount);
-      block.group.scale.setScalar(0.16 + visibleAmount * 0.58 + Math.sin(time / 170 + block.wobble) * 0.012);
+      block.group.scale.setScalar(0.2 + visibleAmount * 0.68 + Math.sin(time / 170 + block.wobble) * 0.014);
       block.body.rotation.x += block.spin.x * delta;
       block.body.rotation.y += block.spin.y * delta;
       block.body.rotation.z += block.spin.z * delta;
@@ -1276,7 +1296,9 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
     const updateBlocks = (time, delta, canCut, slashSpeed, slashIntensity) => {
       if (time >= nextBlockAt && activeBlocks.length < maxActiveBlocks) {
         createBlock(blockLaneConfigs[Math.floor(Math.random() * blockLaneConfigs.length)]);
-        nextBlockAt = time + blockSpawnIntervalMs * (0.78 + Math.random() * 0.48);
+        const rampAmount = THREE.MathUtils.clamp((time - gameStartAt) / blockSpawnRampDurationMs, 0, 1);
+        const spawnInterval = THREE.MathUtils.lerp(blockSpawnStartIntervalMs, blockSpawnMinIntervalMs, rampAmount);
+        nextBlockAt = time + spawnInterval * (0.88 + Math.random() * 0.28);
       }
 
       for (let index = activeBlocks.length - 1; index >= 0; index -= 1) {
@@ -1288,10 +1310,14 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
           updateCutBlock(block, delta);
         }
 
-        if (
-          (block.state === 'active' && block.progress > 1.18)
-          || (block.state === 'cut' && block.cutAge >= block.cutLife)
-        ) {
+        const missedActiveBlock = block.state === 'active'
+          && (block.group.position.z >= rig.position.z || block.progress > 1.35);
+        const finishedCutBlock = block.state === 'cut' && block.cutAge >= block.cutLife;
+
+        if (missedActiveBlock || finishedCutBlock) {
+          if (missedActiveBlock) {
+            scoreBlock('miss');
+          }
           disposeBlock(block);
           activeBlocks.splice(index, 1);
         }
@@ -1399,8 +1425,8 @@ const PhoneSwordScene = ({ packet, calibrateKey }) => {
           slashIntensity = THREE.MathUtils.clamp((slashSpeed - slashTrailMinSpeed) / 6.8, 0, 1);
           canCut = slashSpeed > slashCutMinSpeed;
 
-          if (slashIntensity > 0.03) {
-            createTrailSegment(previousBladeBase, previousBladeTip, bladeBaseWorld, bladeTipWorld, slashIntensity);
+          if (slashIntensity > slashTrailVisibleMinIntensity) {
+            createTrailSegment(previousBladeTip, bladeTipWorld, slashIntensity);
           }
         }
 
@@ -1868,6 +1894,7 @@ const MotionLab = () => {
   const [isStreamExpanded, setIsStreamExpanded] = useState(false);
   const [isPairPanelExpanded, setIsPairPanelExpanded] = useState(false);
   const [isPairPanelDismissed, setIsPairPanelDismissed] = useState(false);
+  const [blockScore, setBlockScore] = useState({ hits: 0, misses: 0 });
   const [now, setNow] = useState(() => Date.now());
   const arrivalTimesRef = useRef([]);
 
@@ -1947,6 +1974,10 @@ const MotionLab = () => {
   const rotationRate = motion.rotationRate;
   const secureOrigin = config?.secure || window.isSecureContext;
   const isRelayAvailable = config?.relayAvailable !== false;
+  const resolvedBlockCount = blockScore.hits + blockScore.misses;
+  const hitPercentage = resolvedBlockCount > 0
+    ? Math.round((blockScore.hits / resolvedBlockCount) * 100)
+    : null;
   const showPairPanel = (!isLive && !isPairPanelDismissed) || isPairPanelExpanded;
   const labClassName = [
     'motion-lab',
@@ -1960,6 +1991,7 @@ const MotionLab = () => {
     setLatestPacket(null);
     setPacketCount(0);
     setPacketRate(0);
+    setBlockScore({ hits: 0, misses: 0 });
     setCalibrateKey(key => key + 1);
     setIsStreamExpanded(false);
     setIsPairPanelExpanded(false);
@@ -1976,6 +2008,13 @@ const MotionLab = () => {
     setIsPairPanelExpanded(true);
     setIsPairPanelDismissed(false);
   };
+
+  const handleBlockScored = useCallback((result) => {
+    setBlockScore(score => ({
+      hits: score.hits + (result === 'hit' ? 1 : 0),
+      misses: score.misses + (result === 'miss' ? 1 : 0),
+    }));
+  }, []);
 
   return (
     <section className={labClassName}>
@@ -2057,6 +2096,7 @@ const MotionLab = () => {
           <PhoneSwordScene
             packet={latestPacket}
             calibrateKey={calibrateKey}
+            onBlockScored={handleBlockScored}
           />
           <div className="motion-scene-overlay">
             <div className="motion-scene-left">
@@ -2079,6 +2119,16 @@ const MotionLab = () => {
               )}
             </div>
             <div className="motion-scene-actions">
+              <div className="motion-scoreboard" aria-label="Cube score">
+                <span>
+                  <small>Hits</small>
+                  <strong>{blockScore.hits}</strong>
+                </span>
+                <span>
+                  <small>Hit %</small>
+                  <strong>{hitPercentage === null ? '--' : `${hitPercentage}%`}</strong>
+                </span>
+              </div>
               <div className="motion-scene-readout">
                 <span>Hz {packetRate}</span>
                 <span>Packets {packetCount}</span>
