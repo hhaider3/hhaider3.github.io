@@ -52,7 +52,8 @@ const darkenHex = (hex, amount) => {
 const ColorWheel = ({ size, selectedHue, selectedSat, onSelect }) => {
   const canvasRef = useRef(null);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-  const canvasSize = size * dpr;
+  const canvasSize = Math.max(1, Math.round(size * dpr));
+  const pixelScale = canvasSize / size;
   const centerX = size / 2;
   const centerY = size / 2;
   const radius = size / 2 - 4;
@@ -60,14 +61,17 @@ const ColorWheel = ({ size, selectedHue, selectedSat, onSelect }) => {
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
+    if (!ctx) return;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
     const imageData = ctx.createImageData(canvasSize, canvasSize);
 
     for (let py = 0; py < canvasSize; py++) {
       for (let px = 0; px < canvasSize; px++) {
         // Map pixel back to CSS coordinates
-        const x = px / dpr;
-        const y = py / dpr;
+        const x = (px + 0.5) / pixelScale;
+        const y = (py + 0.5) / pixelScale;
         const dx = x - centerX;
         const dy = y - centerY;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -87,7 +91,7 @@ const ColorWheel = ({ size, selectedHue, selectedSat, onSelect }) => {
       }
     }
     ctx.putImageData(imageData, 0, 0);
-  }, [size, dpr, canvasSize, centerX, centerY, radius]);
+  }, [canvasSize, centerX, centerY, pixelScale, radius]);
 
   // Draw selection indicator
   const indicatorAngle = (selectedHue * Math.PI) / 180;
@@ -136,7 +140,7 @@ const ColorWheel = ({ size, selectedHue, selectedSat, onSelect }) => {
         ref={canvasRef}
         width={canvasSize}
         height={canvasSize}
-        style={{ width: size, height: size, borderRadius: '50%', cursor: 'crosshair' }}
+        style={{ width: size, height: size, borderRadius: '50%', cursor: 'crosshair', display: 'block' }}
         onMouseDown={(e) => { setDragging(true); handleInteraction(e); }}
         onTouchStart={(e) => { setDragging(true); handleInteraction(e); }}
       />

@@ -155,6 +155,11 @@ const useFps = () => {
 /* ─── Memory hook ─── */
 const useMemory = () => {
   const [mem, setMem] = useState({ used: 0, total: 0 });
+  const fallbackCores = navigator.hardwareConcurrency || 4;
+  const fallbackRef = useRef({
+    total: Math.max(96, Math.min(512, fallbackCores * 32)),
+    phase: (fallbackCores * Math.PI) / 7,
+  });
 
   useEffect(() => {
     const update = () => {
@@ -163,7 +168,15 @@ const useMemory = () => {
           used: Math.round(performance.memory.usedJSHeapSize / (1024 * 1024)),
           total: Math.round(performance.memory.totalJSHeapSize / (1024 * 1024)),
         });
+        return;
       }
+
+      const { total, phase } = fallbackRef.current;
+      const elapsed = performance.now() / 1000;
+      const activity = (Math.sin(elapsed / 5 + phase) + 1) / 2;
+      const jitter = (Math.sin(elapsed / 1.8 + phase * 0.7) + 1) / 2;
+      const used = Math.round(total * (0.34 + activity * 0.24 + jitter * 0.06));
+      setMem({ used, total });
     };
     update();
     const id = setInterval(update, 2000);
@@ -180,12 +193,17 @@ const useNetwork = () => {
 
   useEffect(() => {
     const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    let removeConnChange = null;
+
     if (conn && conn.downlink) {
       baselineRef.current = conn.downlink;
       const onConnChange = () => {
         baselineRef.current = conn.downlink || 10;
       };
-      conn.addEventListener('change', onConnChange);
+      if (conn.addEventListener) {
+        conn.addEventListener('change', onConnChange);
+        removeConnChange = () => conn.removeEventListener('change', onConnChange);
+      }
     }
 
     // Simulate realistic fluctuations around the baseline
@@ -198,7 +216,10 @@ const useNetwork = () => {
     };
     tick();
     const id = setInterval(tick, 1500);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      removeConnChange?.();
+    };
   }, []);
 
   return net;
@@ -212,8 +233,6 @@ const SystemStats = ({ isExpanded: controlledExpanded, onExpandedChange } = {}) 
   const mem = useMemory();
   const net = useNetwork();
   const cores = useMemo(() => navigator.hardwareConcurrency || 0, []);
-  const hasMem = performance.memory != null;
-  const hasNet = !!(navigator.connection || navigator.mozConnection || navigator.webkitConnection);
 
   const coresMax = cores <= 4 ? 8 : cores <= 8 ? 16 : 32;
   const primaryStats = [
@@ -225,6 +244,14 @@ const SystemStats = ({ isExpanded: controlledExpanded, onExpandedChange } = {}) 
       unit: 'frames/s',
       tickCount: 7,
     },
+    {
+      id: 'heap',
+      value: mem.used,
+      max: Math.max(mem.total, 50),
+      label: 'Heap',
+      unit: 'MB',
+      tickCount: 6,
+    },
   ];
   const secondaryStats = [
     {
@@ -235,29 +262,15 @@ const SystemStats = ({ isExpanded: controlledExpanded, onExpandedChange } = {}) 
       unit: 'threads',
       tickCount: 5,
     },
-  ];
-
-  if (hasMem) {
-    primaryStats.push({
-      id: 'heap',
-      value: mem.used,
-      max: Math.max(mem.total, 50),
-      label: 'Heap',
-      unit: 'MB',
-      tickCount: 6,
-    });
-  }
-
-  if (hasNet) {
-    secondaryStats.push({
+    {
       id: 'network',
       value: net.downlink,
       max: 100,
       label: 'Network',
       unit: 'Mb/s',
       tickCount: 6,
-    });
-  }
+    },
+  ];
 
   const toggleExpanded = () => {
     const nextExpanded = !isExpanded;
