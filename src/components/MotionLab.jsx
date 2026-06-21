@@ -22,9 +22,32 @@ const socketEndpoint = '/api/motion/socket';
 const configEndpoint = '/api/motion/config';
 const hostedRelayUrl = 'https://motion-lab-relay.onrender.com';
 const configuredRelayUrl = import.meta.env.VITE_MOTION_RELAY_URL || '';
-const targetPublishIntervalMs = 1000 / 30;
+const targetPublishIntervalMs = 1000 / 45;
 const maxSocketBufferedBytes = 256_000;
 const orientationReconnectGapMs = 1800;
+const swordRestGyroThreshold = 18;
+const swordFastGyroThreshold = 220;
+const swordRestOrientationDeadband = THREE.MathUtils.degToRad(0.75);
+const swordFastOrientationDeadband = THREE.MathUtils.degToRad(0.12);
+const swordRestOrientationResponse = 9;
+const swordFastOrientationResponse = 30;
+const swordAccelerationDeadband = 0.18;
+const swordRestPositionResponse = 7;
+const swordFastPositionResponse = 18;
+
+const dampAlpha = (response, delta) => 1 - Math.exp(-response * delta);
+const deadbandValue = (value, threshold) => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  const magnitude = Math.abs(value);
+  if (magnitude <= threshold) {
+    return 0;
+  }
+
+  return Math.sign(value) * (magnitude - threshold);
+};
 
 const createApiUrl = (origin, endpoint) => new URL(endpoint, origin).toString();
 
@@ -1329,6 +1352,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const baselineInverse = new THREE.Quaternion();
     const targetPosition = new THREE.Vector3();
     const currentPosition = new THREE.Vector3();
+    const rawAcceleration = new THREE.Vector3();
     let hasBaseline = false;
     let lastCalibrationSignal = calibrationSignalRef.current;
     let lastPacketTimestamp = 0;
@@ -1354,6 +1378,18 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       const currentPacket = packetRef.current;
       const hasOrientation = setQuaternionFromDevice(rawQuaternion, currentPacket);
       const packetTimestamp = getPacketTimestamp(currentPacket);
+      const motion = getPacketMotion(currentPacket);
+      const rotationRate = motion.rotationRate || {};
+      const gyroSpeed = Math.hypot(
+        Number.isFinite(rotationRate.alpha) ? rotationRate.alpha : 0,
+        Number.isFinite(rotationRate.beta) ? rotationRate.beta : 0,
+        Number.isFinite(rotationRate.gamma) ? rotationRate.gamma : 0
+      );
+      const swingAmount = THREE.MathUtils.clamp(
+        (gyroSpeed - swordRestGyroThreshold) / (swordFastGyroThreshold - swordRestGyroThreshold),
+        0,
+        1
+      );
       let shouldSnapToBaseline = false;
 
       if (calibrationSignalRef.current !== lastCalibrationSignal) {
@@ -1386,20 +1422,48 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
         if (shouldSnapToBaseline) {
           rig.quaternion.copy(targetQuaternion);
         } else {
-          rig.quaternion.slerp(targetQuaternion, 0.26);
+          const angleToTarget = rig.quaternion.angleTo(targetQuaternion);
+          const orientationDeadband = THREE.MathUtils.lerp(
+            swordRestOrientationDeadband,
+            swordFastOrientationDeadband,
+            swingAmount
+          );
+
+          if (angleToTarget > orientationDeadband) {
+            const orientationResponse = THREE.MathUtils.lerp(
+              swordRestOrientationResponse,
+              swordFastOrientationResponse,
+              swingAmount
+            );
+            rig.quaternion.slerp(targetQuaternion, dampAlpha(orientationResponse, delta));
+          }
         }
       } else {
         rig.rotation.y += delta * 0.45;
         rig.rotation.x = Math.sin(time / 1200) * 0.16;
       }
 
-      const acceleration = getPacketMotion(currentPacket).acceleration || {};
-      targetPosition.set(
-        THREE.MathUtils.clamp((acceleration.x || 0) * 0.045, -0.65, 0.65),
-        THREE.MathUtils.clamp((acceleration.y || 0) * 0.045, -0.42, 0.42),
-        THREE.MathUtils.clamp((acceleration.z || 0) * 0.035, -0.48, 0.48)
+      const acceleration = motion.acceleration || {};
+      rawAcceleration.set(
+        deadbandValue(acceleration.x, swordAccelerationDeadband),
+        deadbandValue(acceleration.y, swordAccelerationDeadband),
+        deadbandValue(acceleration.z, swordAccelerationDeadband)
       );
-      currentPosition.lerp(targetPosition, 0.16);
+      targetPosition.set(
+        THREE.MathUtils.clamp(rawAcceleration.x * 0.045, -0.65, 0.65),
+        THREE.MathUtils.clamp(rawAcceleration.y * 0.045, -0.42, 0.42),
+        THREE.MathUtils.clamp(rawAcceleration.z * 0.035, -0.48, 0.48)
+      );
+      const accelerationAmount = THREE.MathUtils.clamp(rawAcceleration.length() / 8, 0, 1);
+      const positionResponse = THREE.MathUtils.lerp(
+        swordRestPositionResponse,
+        swordFastPositionResponse,
+        accelerationAmount
+      );
+      currentPosition.lerp(targetPosition, dampAlpha(positionResponse, delta));
+      if (targetPosition.lengthSq() === 0 && currentPosition.lengthSq() < 0.0009) {
+        currentPosition.set(0, 0, 0);
+      }
       rig.position.copy(swordRestPosition).add(currentPosition);
 
       bladeBaseWorld.set(0, 0, bladeBaseZ);
@@ -1408,12 +1472,6 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       sword.localToWorld(bladeTipWorld);
       updateSwordFloorProjection();
 
-      const rotationRate = getPacketMotion(currentPacket).rotationRate || {};
-      const gyroSpeed = Math.hypot(
-        Number.isFinite(rotationRate.alpha) ? rotationRate.alpha : 0,
-        Number.isFinite(rotationRate.beta) ? rotationRate.beta : 0,
-        Number.isFinite(rotationRate.gamma) ? rotationRate.gamma : 0
-      );
       let slashSpeed = 0;
       let slashIntensity = 0;
       let canCut = false;
