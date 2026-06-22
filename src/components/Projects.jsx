@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Bot, Gamepad2, MessageSquare, Cpu, ExternalLink, Play } from 'lucide-react';
+import { Search, Bot, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, ExternalLink, Play } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 
 const projectsData = [
@@ -42,6 +42,44 @@ const projectsData = [
   },
   {
     id: 3,
+    title: 'Time Globe',
+    date: 'Jun 2026',
+    category: 'interactive',
+    description: 'Built an interactive Three.js globe that visualizes time zones, live sunlight, and current date boundaries across the Earth.',
+    details: [
+      'Rendered timezone boundary data on a 3D Earth with selectable zones, highlighted borders, and local time/date readouts.',
+      'Implemented real-time solar positioning, day/night shading, atmosphere effects, and automatic date-line updates.',
+      'Added pointer controls for drag, zoom, and click-to-inspect behavior with stable resizing across desktop windows.',
+    ],
+    tags: ['React', 'Three.js', 'JavaScript', 'WebGL', 'Intl API', 'Geospatial Data'],
+    gradientClass: 'bg-gradient-globe',
+    icon: <Globe className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: '#', label: 'Live Demo', icon: <ExternalLink size={16} />, disabled: true }
+    ]
+  },
+  {
+    id: 4,
+    title: 'Motion Labs',
+    date: 'Jun 2026',
+    category: 'interactive',
+    description: 'Created a browser-based motion lab that pairs a phone with a desktop viewport and turns live sensor data into a 3D sword interaction.',
+    details: [
+      'Built QR-based phone pairing with HTTPS-aware routing, session IDs, and a hosted/local relay fallback for live sensor packets.',
+      'Streamed DeviceMotion and DeviceOrientation data through WebSocket/SSE endpoints with packet-rate telemetry and reconnect handling.',
+      'Mapped calibrated phone orientation and acceleration into a Three.js sword scene with hit detection, scoring, and live sensor readouts.',
+    ],
+    tags: ['React', 'Three.js', 'Node.js', 'WebSocket', 'SSE', 'DeviceMotion API'],
+    gradientClass: 'bg-gradient-motion',
+    icon: <RadioTower className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: '#', label: 'Live Demo', icon: <ExternalLink size={16} />, disabled: true }
+    ]
+  },
+  {
+    id: 5,
     title: 'Discord.js Web Bot',
     date: 'Dec 2019 – Jan 2021',
     category: 'web',
@@ -58,7 +96,7 @@ const projectsData = [
     ]
   },
   {
-    id: 4,
+    id: 6,
     title: 'IoT-Based Weighing Scale',
     date: 'Jan 2020 – Mar 2020',
     category: 'iot',
@@ -115,6 +153,7 @@ const Projects = () => {
           <div className="filter-buttons">
             <button className={`filter-btn ${activeFilter === 'all' ? 'active' : ''}`} onClick={() => setActiveFilter('all')}>All</button>
             <button className={`filter-btn ${activeFilter === 'ai' ? 'active' : ''}`} onClick={() => setActiveFilter('ai')}>AI & LLMs</button>
+            <button className={`filter-btn ${activeFilter === 'interactive' ? 'active' : ''}`} onClick={() => setActiveFilter('interactive')}>Interactive 3D</button>
             <button className={`filter-btn ${activeFilter === 'web' ? 'active' : ''}`} onClick={() => setActiveFilter('web')}>Web Development</button>
             <button className={`filter-btn ${activeFilter === 'game' ? 'active' : ''}`} onClick={() => setActiveFilter('game')}>Game Dev</button>
             <button className={`filter-btn ${activeFilter === 'iot' ? 'active' : ''}`} onClick={() => setActiveFilter('iot')}>IoT & Hardware</button>
