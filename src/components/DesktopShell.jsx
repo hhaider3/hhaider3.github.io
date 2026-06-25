@@ -462,7 +462,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     ));
   }, [nextZ]);
 
-  const getIconOpenOrigin = (itemId) => {
+  const getIconOpenOrigin = useCallback((itemId) => {
     if (typeof document === 'undefined') {
       return null;
     }
@@ -479,7 +479,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       width: rect.width,
       height: rect.height,
     };
-  };
+  }, []);
 
   const getTaskbarOpenOrigin = useCallback((itemId) => {
     if (typeof document === 'undefined') {
@@ -500,7 +500,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     };
   }, []);
 
-  const openItem = (item) => {
+  const openItem = useCallback((item, originOverride = null) => {
     setSelectedIds([item.id]);
     setIsStartOpen(false);
 
@@ -514,7 +514,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       return;
     }
 
-    const openOrigin = getIconOpenOrigin(item.id);
+    const openOrigin = originOverride || getIconOpenOrigin(item.id);
 
     if (isMobile) {
       setMobileOpenOrigin(openOrigin);
@@ -534,7 +534,23 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 
       return [...prev, { id: item.id, isMaximized: false, isMinimized: false, zIndex: nextZ(), openOrigin }];
     });
-  };
+  }, [getIconOpenOrigin, isMobile, nextZ]);
+
+  useEffect(() => {
+    const handleOpenAppRequest = (event) => {
+      const appId = event.detail?.appId;
+      const app = internalApps.find(item => item.id === appId);
+
+      if (!app) {
+        return;
+      }
+
+      openItem({ ...app, kind: 'internal' }, event.detail?.openOrigin || null);
+    };
+
+    window.addEventListener('portfolio:open-app', handleOpenAppRequest);
+    return () => window.removeEventListener('portfolio:open-app', handleOpenAppRequest);
+  }, [internalApps, openItem]);
 
   const closeWindow = useCallback((windowId) => {
     setOpenWindows(prev => prev.filter(w => w.id !== windowId));

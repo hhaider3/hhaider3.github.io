@@ -56,7 +56,7 @@ const projectsData = [
     icon: <Globe className="project-banner-icon" />,
     links: [
       { url: 'https://github.com/hhaider3', label: 'Code', icon: <FaGithub size={16} /> },
-      { url: '#', label: 'Live Demo', icon: <ExternalLink size={16} />, disabled: true }
+      { url: '#', label: 'Live Demo', icon: <ExternalLink size={16} />, appId: 'globe' }
     ]
   },
   {
@@ -75,7 +75,7 @@ const projectsData = [
     icon: <RadioTower className="project-banner-icon" />,
     links: [
       { url: 'https://github.com/hhaider3', label: 'Code', icon: <FaGithub size={16} /> },
-      { url: '#', label: 'Live Demo', icon: <ExternalLink size={16} />, disabled: true }
+      { url: '#', label: 'Live Demo', icon: <ExternalLink size={16} />, appId: 'motion' }
     ]
   },
   {
@@ -117,6 +117,27 @@ const projectsData = [
 const Projects = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const openDesktopApp = (event, appId) => {
+    if (!appId) {
+      return;
+    }
+
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+
+    window.dispatchEvent(new CustomEvent('portfolio:open-app', {
+      detail: {
+        appId,
+        openOrigin: {
+          centerX: rect.left + rect.width / 2,
+          centerY: rect.top + rect.height / 2,
+          width: rect.width,
+          height: rect.height,
+        },
+      },
+    }));
+  };
 
   const filteredProjects = projectsData.filter(project => {
     const matchesCategory = activeFilter === 'all' || project.category === activeFilter;
@@ -184,10 +205,19 @@ const Projects = () => {
                     <a 
                       key={idx} 
                       href={link.url} 
-                      target={link.disabled ? undefined : "_blank"} 
+                      target={link.disabled || link.appId ? undefined : "_blank"}
                       rel="noreferrer" 
                       className={`project-link-btn ${link.disabled ? 'disabled' : ''}`}
-                      onClick={(e) => link.disabled && e.preventDefault()}
+                      onClick={(e) => {
+                        if (link.appId) {
+                          openDesktopApp(e, link.appId);
+                          return;
+                        }
+
+                        if (link.disabled) {
+                          e.preventDefault();
+                        }
+                      }}
                     >
                       {link.icon} {link.label}
                     </a>
