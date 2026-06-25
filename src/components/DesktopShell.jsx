@@ -15,6 +15,7 @@ import {
   getDefaultIconPosition,
   getDefaultWidgetRects,
   getInitialIconPositions,
+  getInitialStatsExpanded,
   getInitialThemeColors,
   getInitialWidgetRects,
   getSelectionRect,
@@ -22,11 +23,11 @@ import {
   selectionThreshold,
   statsCollapsedWidgetHeight,
   statsExpandedWidgetHeight,
+  widgetStackGap,
 } from './desktop/desktopUtils';
 import wallpaper from '../assets/win7-portfolio-wallpaper.png';
 
 const DesktopShell = ({ theme, toggleTheme }) => {
-  const widgetStackGap = 10;
   const isMobile = useIsMobile();
   const { desktopItems, internalApps } = useDesktopApps();
   const desktopRef = useRef(null);
@@ -41,7 +42,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const [iconPositions, setIconPositions] = useState(getInitialIconPositions);
   const [widgetRects, setWidgetRects] = useState(getInitialWidgetRects);
   const [widgetZIndexes, setWidgetZIndexes] = useState({ clock: 1, stats: 2, colors: 3 });
-  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(getInitialStatsExpanded);
   const [isStartOpen, setIsStartOpen] = useState(false);
   const [themeColors, setThemeColors] = useState(getInitialThemeColors);
 
@@ -127,8 +128,9 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       version: desktopLayoutVersion,
       icons: iconPositions,
       widgets: widgetRects,
+      statsExpanded: isStatsExpanded,
     }));
-  }, [iconPositions, isMobile, widgetRects]);
+  }, [iconPositions, isMobile, isStatsExpanded, widgetRects]);
 
   const activeSelectionRect = selectionBox ? getSelectionRect(selectionBox) : null;
   const isSelectionVisible = activeSelectionRect

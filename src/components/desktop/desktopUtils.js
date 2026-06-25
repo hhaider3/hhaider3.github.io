@@ -7,6 +7,7 @@ export const selectionThreshold = 4;
 export const iconDragThreshold = 5;
 export const desktopTaskbarHeight = 56;
 export const desktopMargin = 12;
+export const widgetStackGap = 10;
 export const widgetResizeEdges = ['e', 's', 'se'];
 export const widgetLabels = {
   clock: 'Clock',
@@ -141,6 +142,19 @@ export const loadDesktopLayout = () => {
   }
 };
 
+const getSavedStatsExpanded = (savedLayout) => {
+  if (typeof savedLayout?.statsExpanded === 'boolean') {
+    return savedLayout.statsExpanded;
+  }
+
+  const savedStatsHeight = savedLayout?.widgets?.stats?.h;
+  const legacyExpandedThreshold = (statsCollapsedWidgetHeight + statsExpandedWidgetHeight) / 2;
+
+  return Number.isFinite(savedStatsHeight) && savedStatsHeight >= legacyExpandedThreshold;
+};
+
+export const getInitialStatsExpanded = () => getSavedStatsExpanded(loadDesktopLayout());
+
 export const getInitialIconPositions = () => {
   const savedLayout = loadDesktopLayout();
   return desktopIconOrder.reduce((positions, id, index) => {
@@ -156,9 +170,45 @@ export const getInitialIconPositions = () => {
 export const getInitialWidgetRects = () => {
   const savedLayout = loadDesktopLayout();
   const defaultWidgets = getDefaultWidgetRects();
+  const isStatsExpanded = getSavedStatsExpanded(savedLayout);
 
-  return Object.keys(defaultWidgets).reduce((rects, id) => {
-    rects[id] = clampWidgetRect(savedLayout?.widgets?.[id] || defaultWidgets[id], id);
-    return rects;
+  const rects = Object.keys(defaultWidgets).reduce((nextRects, id) => {
+    let rect = savedLayout?.widgets?.[id] || defaultWidgets[id];
+
+    if (id === 'stats' && isStatsExpanded) {
+      rect = {
+        ...rect,
+        h: Math.max(rect.h || 0, statsExpandedWidgetHeight),
+      };
+    }
+
+    nextRects[id] = clampWidgetRect(rect, id);
+    return nextRects;
   }, {});
+
+  if (!isStatsExpanded || !rects.stats) {
+    return rects;
+  }
+
+  const statsRect = rects.stats;
+  const minimumStackedY = statsRect.y + statsRect.h + widgetStackGap;
+
+  Object.keys(rects).forEach((id) => {
+    if (id === 'stats') {
+      return;
+    }
+
+    const rect = rects[id];
+    const horizontallyOverlapsStats = (
+      rect.x < statsRect.x + statsRect.w
+      && rect.x + rect.w > statsRect.x
+    );
+    const isBelowStatsTop = rect.y >= statsRect.y + widgetStackGap;
+
+    if (horizontallyOverlapsStats && isBelowStatsTop && rect.y < minimumStackedY) {
+      rects[id] = clampWidgetRect({ ...rect, y: minimumStackedY }, id);
+    }
+  });
+
+  return rects;
 };
