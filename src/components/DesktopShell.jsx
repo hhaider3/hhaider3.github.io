@@ -26,6 +26,7 @@ import {
 import wallpaper from '../assets/win7-portfolio-wallpaper.png';
 
 const DesktopShell = ({ theme, toggleTheme }) => {
+  const widgetStackGap = 10;
   const isMobile = useIsMobile();
   const { desktopItems, internalApps } = useDesktopApps();
   const desktopRef = useRef(null);
@@ -67,13 +68,41 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     }
 
     setWidgetRects((prev) => {
-      const current = prev.stats || getDefaultWidgetRects().stats;
+      const defaultRects = getDefaultWidgetRects();
+      const current = prev.stats || defaultRects.stats;
       const nextHeight = nextExpanded ? statsExpandedWidgetHeight : statsCollapsedWidgetHeight;
-
-      return {
+      const nextStatsRect = clampWidgetRect({ ...current, h: nextHeight }, 'stats');
+      const currentStatsBottom = current.y + current.h;
+      const nextStatsBottom = nextStatsRect.y + nextStatsRect.h;
+      const nextRects = {
         ...prev,
-        stats: clampWidgetRect({ ...current, h: nextHeight }, 'stats'),
+        stats: nextStatsRect,
       };
+
+      Object.keys(defaultRects).forEach((id) => {
+        if (id === 'stats') {
+          return;
+        }
+
+        const rect = prev[id] || defaultRects[id];
+        const horizontallyOverlapsStats = (
+          rect.x < current.x + current.w
+          && rect.x + rect.w > current.x
+        );
+        const isStackedBelowStats = rect.y >= currentStatsBottom - widgetStackGap;
+
+        if (!horizontallyOverlapsStats || !isStackedBelowStats) {
+          return;
+        }
+
+        const preservedGap = Math.max(widgetStackGap, rect.y - currentStatsBottom);
+        nextRects[id] = {
+          ...rect,
+          y: nextStatsBottom + preservedGap,
+        };
+      });
+
+      return nextRects;
     });
 
     if (nextExpanded) {
