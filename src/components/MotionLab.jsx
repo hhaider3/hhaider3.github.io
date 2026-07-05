@@ -199,6 +199,7 @@ const getPacketTimestamp = (packet) => {
 };
 
 const swordRestPosition = new THREE.Vector3(0, -0.92, 0);
+const phoneViewportQuery = '(max-width: 760px)';
 const blockTravelDuration = 3.2;
 const blockFirstSpawnDelayMs = 900;
 const blockSpawnStartIntervalMs = 1450;
@@ -313,6 +314,23 @@ const TelemetryTile = ({ label, value, detail, icon }) => (
     {detail && <small>{detail}</small>}
   </div>
 );
+
+const usePhoneViewport = () => {
+  const [isPhoneViewport, setIsPhoneViewport] = useState(() => (
+    typeof window !== 'undefined' ? window.matchMedia(phoneViewportQuery).matches : false
+  ));
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(phoneViewportQuery);
+    const handleChange = (event) => setIsPhoneViewport(event.matches);
+
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  return isPhoneViewport;
+};
 
 const setQuaternionFromDevice = (() => {
   const euler = new THREE.Euler();
@@ -1941,6 +1959,7 @@ export const PhoneSensorClient = () => {
 };
 
 const MotionLab = () => {
+  const isPhoneViewport = usePhoneViewport();
   const relayOrigin = useMemo(() => getRelayOrigin(), []);
   const [sessionId, setSessionId] = useState(createSessionId);
   const [config, setConfig] = useState(null);
@@ -1957,6 +1976,10 @@ const MotionLab = () => {
   const arrivalTimesRef = useRef([]);
 
   useEffect(() => {
+    if (isPhoneViewport) {
+      return undefined;
+    }
+
     let ignore = false;
 
     fetch(createApiUrl(relayOrigin, configEndpoint))
@@ -1982,7 +2005,7 @@ const MotionLab = () => {
     return () => {
       ignore = true;
     };
-  }, [relayOrigin]);
+  }, [isPhoneViewport, relayOrigin]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 250);
@@ -1990,6 +2013,10 @@ const MotionLab = () => {
   }, []);
 
   useEffect(() => {
+    if (isPhoneViewport) {
+      return undefined;
+    }
+
     if (!config || config.relayAvailable === false) {
       return undefined;
     }
@@ -2013,7 +2040,7 @@ const MotionLab = () => {
     });
 
     return () => eventSource.close();
-  }, [config, relayOrigin, sessionId]);
+  }, [config, isPhoneViewport, relayOrigin, sessionId]);
 
   const phonePageOrigin = relayOrigin === window.location.origin
     ? (config?.preferredOrigin || window.location.origin)
@@ -2073,6 +2100,20 @@ const MotionLab = () => {
       misses: score.misses + (result === 'miss' ? 1 : 0),
     }));
   }, []);
+
+  if (isPhoneViewport) {
+    return (
+      <section className="motion-lab-phone-message" role="status" aria-live="polite">
+        <div className="motion-lab-phone-message-panel">
+          <span className="motion-lab-phone-message-icon">
+            <Smartphone size={36} />
+          </span>
+          <h1>Best viewed on larger screens</h1>
+          <p>Motion Lab uses a desktop viewport for the 3D scene and pairing controls.</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={labClassName}>
