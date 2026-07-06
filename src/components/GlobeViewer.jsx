@@ -597,6 +597,15 @@ const GlobeViewer = () => {
   const mountRef = useRef(null);
   const clearSelectedZoneRef = useRef(() => { });
   const [selectedZone, setSelectedZone] = useState(null);
+  const [showOpenHint, setShowOpenHint] = useState(true);
+
+  useEffect(() => {
+    const hintTimerId = window.setTimeout(() => {
+      setShowOpenHint(false);
+    }, 2000);
+
+    return () => window.clearTimeout(hintTimerId);
+  }, []);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -1023,6 +1032,38 @@ const GlobeViewer = () => {
         ref={mountRef}
         style={{ width: '100%', height: '100%' }}
       />
+      {showOpenHint && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: '22px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 30,
+            width: 'min(420px, calc(100% - 28px))',
+            padding: '10px 14px',
+            border: '1px solid rgba(168,237,255,0.42)',
+            borderRadius: '8px',
+            background: 'rgba(6,18,34,0.84)',
+            color: '#f8fafc',
+            boxShadow: '0 14px 34px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)',
+            fontSize: '13px',
+            fontWeight: 700,
+            lineHeight: 1.35,
+            textAlign: 'center',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            animation: 'tzHintFadeIn 0.18s ease',
+          }}
+        >
+          <style>{`
+            @keyframes tzHintFadeIn{from{opacity:0;transform:translateX(-50%) translateY(-6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+          `}</style>
+          Click anywhere on globe to see the time at that location
+        </div>
+      )}
       {selectedZone && (
         <TimezoneCard
           key={selectedZone}
