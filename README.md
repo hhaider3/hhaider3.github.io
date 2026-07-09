@@ -6,6 +6,18 @@ Interactive portfolio for [Hasan Haider](https://hhaider3.github.io): a **Window
 
 ---
 
+## Contents
+
+- [Branches](#branches)
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Quick start](#quick-start-source-branch)
+- [Motion Lab](#motion-lab)
+- [Deploy](#deploy)
+- [Development notes](#development-notes)
+
+---
+
 ## Branches
 
 This repository uses two branches with different jobs:
@@ -72,14 +84,14 @@ If you opened the repo on `main` and expected source code: switch to [`source`](
 
 ### Requirements
 
-- Node.js 20+ (CI uses 22)
+- Node.js `^20.19.0` or `>=22.12.0` (CI uses 22)
 - npm
 
 ### Install and run
 
 ```bash
 git checkout source
-npm install
+npm ci
 npm run dev
 ```
 
@@ -188,7 +200,7 @@ You can also run the workflow manually via **Actions → Deploy to GitHub Pages 
 
 ```bash
 git checkout source
-npm install
+npm ci
 VITE_MOTION_RELAY_URL=https://motion-lab-relay.onrender.com npm run deploy
 ```
 
