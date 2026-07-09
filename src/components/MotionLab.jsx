@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import {
   Activity,
   AlertTriangle,
@@ -409,209 +412,198 @@ const createTaperedBladeGeometry = ({
   return geometry;
 };
 
-const createRoundedBoxGeometry = ({
-  width,
-  height,
-  depth,
-  radius,
-  segments = 6,
-}) => {
-  const x = -width / 2;
-  const y = -height / 2;
-  const roundedRadius = Math.min(radius, width / 2, height / 2);
-  const shape = new THREE.Shape();
+/* ── Analytic cube slicer ────────────────────────────────────────────────── */
 
-  shape.moveTo(x + roundedRadius, y);
-  shape.lineTo(x + width - roundedRadius, y);
-  shape.quadraticCurveTo(x + width, y, x + width, y + roundedRadius);
-  shape.lineTo(x + width, y + height - roundedRadius);
-  shape.quadraticCurveTo(x + width, y + height, x + width - roundedRadius, y + height);
-  shape.lineTo(x + roundedRadius, y + height);
-  shape.quadraticCurveTo(x, y + height, x, y + height - roundedRadius);
-  shape.lineTo(x, y + roundedRadius);
-  shape.quadraticCurveTo(x, y, x + roundedRadius, y);
+const sliceEpsilon = 1e-5;
 
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth,
-    bevelEnabled: true,
-    bevelSegments: segments,
-    bevelSize: roundedRadius,
-    bevelThickness: roundedRadius,
-    curveSegments: segments,
-    steps: 1,
-  });
-  geometry.center();
-  geometry.computeVertexNormals();
-  return geometry;
+const pushTriangle = (target, a, b, c) => {
+  target.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
 };
 
-/* ── Plane-based geometry slicer ─────────────────────────────────────────── */
+const clipPolygonToPlane = (polygon, plane, keepFront) => {
+  const clipped = [];
 
-const sliceGeometry = (sourceGeometry, plane) => {
-  const posAttr = sourceGeometry.getAttribute('position');
-  const indexArray = sourceGeometry.index
-    ? sourceGeometry.index.array
-    : null;
-  const triCount = indexArray
-    ? indexArray.length / 3
-    : posAttr.count / 3;
+  for (let index = 0; index < polygon.length; index += 1) {
+    const current = polygon[index];
+    const previous = polygon[(index + polygon.length - 1) % polygon.length];
+    const currentDistance = plane.distanceToPoint(current);
+    const previousDistance = plane.distanceToPoint(previous);
+    const currentInside = keepFront
+      ? currentDistance >= -sliceEpsilon
+      : currentDistance <= sliceEpsilon;
+    const previousInside = keepFront
+      ? previousDistance >= -sliceEpsilon
+      : previousDistance <= sliceEpsilon;
 
-  const frontPositions = [];
-  const backPositions = [];
-  const frontCap = [];  // vertices lying on the plane (for capping)
-  const backCap = [];
-
-  const getVertex = (i) => new THREE.Vector3(
-    posAttr.getX(i),
-    posAttr.getY(i),
-    posAttr.getZ(i)
-  );
-
-  const classify = (vertex) => plane.distanceToPoint(vertex);
-
-  const interpolateEdge = (vertexA, vertexB, distA, distB) => {
-    const t = distA / (distA - distB);
-    return new THREE.Vector3().lerpVectors(vertexA, vertexB, t);
-  };
-
-  const pushTri = (target, a, b, c) => {
-    target.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-  };
-
-  for (let tri = 0; tri < triCount; tri++) {
-    const i0 = indexArray ? indexArray[tri * 3] : tri * 3;
-    const i1 = indexArray ? indexArray[tri * 3 + 1] : tri * 3 + 1;
-    const i2 = indexArray ? indexArray[tri * 3 + 2] : tri * 3 + 2;
-
-    const v0 = getVertex(i0);
-    const v1 = getVertex(i1);
-    const v2 = getVertex(i2);
-
-    const d0 = classify(v0);
-    const d1 = classify(v1);
-    const d2 = classify(v2);
-
-    const s0 = d0 >= 0 ? 1 : -1;
-    const s1 = d1 >= 0 ? 1 : -1;
-    const s2 = d2 >= 0 ? 1 : -1;
-
-    // All on front side
-    if (s0 >= 0 && s1 >= 0 && s2 >= 0) {
-      pushTri(frontPositions, v0, v1, v2);
-      continue;
-    }
-    // All on back side
-    if (s0 < 0 && s1 < 0 && s2 < 0) {
-      pushTri(backPositions, v0, v1, v2);
-      continue;
+    if (currentInside !== previousInside) {
+      const amount = previousDistance / (previousDistance - currentDistance);
+      clipped.push(previous.clone().lerp(current, amount));
     }
 
-    // Triangle straddles the plane — find the lone vertex
-    const verts = [v0, v1, v2];
-    const dists = [d0, d1, d2];
-    const signs = [s0, s1, s2];
-
-    // Find the vertex that is alone on one side
-    const loneIdx = signs[0] !== signs[1] && signs[0] !== signs[2]
-      ? 0
-      : signs[1] !== signs[0] && signs[1] !== signs[2]
-        ? 1
-        : 2;
-
-    const pairA = (loneIdx + 1) % 3;
-    const pairB = (loneIdx + 2) % 3;
-
-    const intA = interpolateEdge(verts[loneIdx], verts[pairA], dists[loneIdx], dists[pairA]);
-    const intB = interpolateEdge(verts[loneIdx], verts[pairB], dists[loneIdx], dists[pairB]);
-
-    const loneSide = signs[loneIdx] >= 0 ? frontPositions : backPositions;
-    const pairSide = signs[loneIdx] >= 0 ? backPositions : frontPositions;
-    const loneCap = signs[loneIdx] >= 0 ? frontCap : backCap;
-    const pairCapArr = signs[loneIdx] >= 0 ? backCap : frontCap;
-
-    // Lone vertex triangle
-    pushTri(loneSide, verts[loneIdx], intA, intB);
-    loneCap.push(intA.clone(), intB.clone());
-
-    // Pair side — two triangles (quad)
-    pushTri(pairSide, intA, verts[pairA], verts[pairB]);
-    pushTri(pairSide, intA, verts[pairB], intB);
-    pairCapArr.push(intA.clone(), intB.clone());
+    if (currentInside) {
+      clipped.push(current.clone());
+    }
   }
 
-  // Build cap face from intersection points
-  const buildCap = (points, flipNormal) => {
-    if (points.length < 4) return [];
+  const deduped = clipped.filter((point, index) => (
+    index === 0 || point.distanceToSquared(clipped[index - 1]) > sliceEpsilon ** 2
+  ));
 
-    // Compute centroid
-    const centroid = new THREE.Vector3();
-    points.forEach(p => centroid.add(p));
-    centroid.divideScalar(points.length);
+  if (
+    deduped.length > 2
+    && deduped[0].distanceToSquared(deduped[deduped.length - 1]) <= sliceEpsilon ** 2
+  ) {
+    deduped.pop();
+  }
 
-    // Build local 2D frame on the plane for sorting
-    const normal = plane.normal.clone();
-    if (flipNormal) normal.negate();
+  return deduped;
+};
 
-    let refAxis = new THREE.Vector3(1, 0, 0);
-    if (Math.abs(normal.dot(refAxis)) > 0.9) {
-      refAxis = new THREE.Vector3(0, 1, 0);
+const sortPointsOnPlane = (points, normal) => {
+  const centroid = points.reduce(
+    (result, point) => result.add(point),
+    new THREE.Vector3()
+  ).divideScalar(points.length);
+  const reference = Math.abs(normal.x) < 0.8
+    ? new THREE.Vector3(1, 0, 0)
+    : new THREE.Vector3(0, 1, 0);
+  const axisU = new THREE.Vector3().crossVectors(reference, normal).normalize();
+  const axisV = new THREE.Vector3().crossVectors(normal, axisU).normalize();
+
+  return [...points].sort((pointA, pointB) => {
+    const deltaA = pointA.clone().sub(centroid);
+    const deltaB = pointB.clone().sub(centroid);
+    return Math.atan2(deltaA.dot(axisV), deltaA.dot(axisU))
+      - Math.atan2(deltaB.dot(axisV), deltaB.dot(axisU));
+  });
+};
+
+const sliceBoxGeometry = (size, plane) => {
+  const half = size / 2;
+  const vertices = [
+    new THREE.Vector3(-half, -half, -half),
+    new THREE.Vector3(-half, -half, half),
+    new THREE.Vector3(-half, half, -half),
+    new THREE.Vector3(-half, half, half),
+    new THREE.Vector3(half, -half, -half),
+    new THREE.Vector3(half, -half, half),
+    new THREE.Vector3(half, half, -half),
+    new THREE.Vector3(half, half, half),
+  ];
+  const faces = [
+    [vertices[4], vertices[6], vertices[7], vertices[5]],
+    [vertices[1], vertices[3], vertices[2], vertices[0]],
+    [vertices[2], vertices[3], vertices[7], vertices[6]],
+    [vertices[1], vertices[0], vertices[4], vertices[5]],
+    [vertices[1], vertices[5], vertices[7], vertices[3]],
+    [vertices[4], vertices[0], vertices[2], vertices[6]],
+  ];
+  const edges = [
+    [0, 1], [0, 2], [0, 4],
+    [1, 3], [1, 5], [2, 3],
+    [2, 6], [3, 7], [4, 5],
+    [4, 6], [5, 7], [6, 7],
+  ];
+  const capPoints = [];
+
+  const addCapPoint = (point) => {
+    if (!capPoints.some(existing => (
+      existing.distanceToSquared(point) <= sliceEpsilon ** 2
+    ))) {
+      capPoints.push(point.clone());
     }
-    const u = new THREE.Vector3().crossVectors(normal, refAxis).normalize();
-    const v = new THREE.Vector3().crossVectors(normal, u).normalize();
+  };
 
-    // Deduplicate points
-    const unique = [];
-    const seen = new Set();
-    for (const p of points) {
-      const key = `${(p.x * 1000) | 0},${(p.y * 1000) | 0},${(p.z * 1000) | 0}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        unique.push(p);
+  edges.forEach(([startIndex, endIndex]) => {
+    const start = vertices[startIndex];
+    const end = vertices[endIndex];
+    const startDistance = plane.distanceToPoint(start);
+    const endDistance = plane.distanceToPoint(end);
+
+    if (Math.abs(startDistance) <= sliceEpsilon) addCapPoint(start);
+    if (Math.abs(endDistance) <= sliceEpsilon) addCapPoint(end);
+    if (startDistance * endDistance < -(sliceEpsilon ** 2)) {
+      addCapPoint(start.clone().lerp(
+        end,
+        startDistance / (startDistance - endDistance)
+      ));
+    }
+  });
+
+  const buildHalf = (keepFront) => {
+    const shellPositions = [];
+    faces.forEach((face) => {
+      const clippedFace = clipPolygonToPlane(face, plane, keepFront);
+      for (let index = 1; index < clippedFace.length - 1; index += 1) {
+        pushTriangle(shellPositions, clippedFace[0], clippedFace[index], clippedFace[index + 1]);
+      }
+    });
+
+    const capPositions = [];
+    if (capPoints.length >= 3) {
+      const capNormal = plane.normal.clone().multiplyScalar(keepFront ? -1 : 1);
+      const sortedCap = sortPointsOnPlane(capPoints, capNormal);
+      for (let index = 1; index < sortedCap.length - 1; index += 1) {
+        pushTriangle(capPositions, sortedCap[0], sortedCap[index], sortedCap[index + 1]);
       }
     }
 
-    if (unique.length < 3) return [];
+    const shellVertexCount = shellPositions.length / 3;
+    const capVertexCount = capPositions.length / 3;
+    const positions = new Float32Array(shellPositions.length + capPositions.length);
+    positions.set(shellPositions);
+    positions.set(capPositions, shellPositions.length);
 
-    // Sort by angle around centroid
-    unique.sort((a, b) => {
-      const da = a.clone().sub(centroid);
-      const db = b.clone().sub(centroid);
-      return Math.atan2(da.dot(v), da.dot(u)) - Math.atan2(db.dot(v), db.dot(u));
-    });
-
-    // Fan triangulation from centroid
-    const capPositions = [];
-    for (let i = 0; i < unique.length; i++) {
-      const next = unique[(i + 1) % unique.length];
-      pushTri(capPositions, centroid, unique[i], next);
-    }
-    return capPositions;
-  };
-
-  const frontCapTris = buildCap(frontCap, false);
-  const backCapTris = buildCap(backCap, true);
-
-  const buildResult = (positions, capTris) => {
-    const shellVertexCount = positions.length / 3;
-    const capVertexCount = capTris.length / 3;
-    const all = new Float32Array(positions.length + capTris.length);
-    all.set(positions);
-    all.set(capTris, positions.length);
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(all, 3));
-    geo.computeVertexNormals();
-    // Group 0 = outer shell triangles, Group 1 = cap (inner cross-section) triangles
-    geo.addGroup(0, shellVertexCount, 0);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.addGroup(0, shellVertexCount, 0);
     if (capVertexCount > 0) {
-      geo.addGroup(shellVertexCount, capVertexCount, 1);
+      geometry.addGroup(shellVertexCount, capVertexCount, 1);
     }
-    return geo;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    return geometry;
   };
 
   return {
-    front: buildResult(frontPositions, frontCapTris),
-    back: buildResult(backPositions, backCapTris),
+    front: buildHalf(true),
+    back: buildHalf(false),
   };
+};
+
+const getVolumeCentroid = (geometry) => {
+  const positions = geometry.getAttribute('position');
+  const centroid = new THREE.Vector3();
+  const vertexA = new THREE.Vector3();
+  const vertexB = new THREE.Vector3();
+  const vertexC = new THREE.Vector3();
+  const cross = new THREE.Vector3();
+  const triangleCenter = new THREE.Vector3();
+  let signedVolume = 0;
+
+  for (let index = 0; index < positions.count; index += 3) {
+    vertexA.fromBufferAttribute(positions, index);
+    vertexB.fromBufferAttribute(positions, index + 1);
+    vertexC.fromBufferAttribute(positions, index + 2);
+    const tetrahedronVolume = vertexA.dot(cross.crossVectors(vertexB, vertexC)) / 6;
+    triangleCenter.copy(vertexA).add(vertexB).add(vertexC);
+    centroid.addScaledVector(triangleCenter, tetrahedronVolume);
+    signedVolume += tetrahedronVolume;
+  }
+
+  if (Math.abs(signedVolume) > sliceEpsilon) {
+    return centroid.multiplyScalar(1 / (4 * signedVolume));
+  }
+
+  geometry.computeBoundingBox();
+  return geometry.boundingBox.getCenter(centroid);
+};
+
+const centerGeometry = (geometry, centroid) => {
+  geometry.translate(-centroid.x, -centroid.y, -centroid.z);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
 };
 
 const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
@@ -992,13 +984,15 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     );
     scene.add(floorGroup);
 
-    const blockCoreGeometry = trackGeometry(createRoundedBoxGeometry({
-      width: blockCoreSize,
-      height: blockCoreSize,
-      depth: blockCoreSize,
-      radius: 0.075,
-    }));
-    const blockEdgeGeometry = trackGeometry(new THREE.EdgesGeometry(blockCoreGeometry));
+    const blockCoreGeometry = trackGeometry(new THREE.BoxGeometry(
+      blockCoreSize,
+      blockCoreSize,
+      blockCoreSize
+    ));
+    const blockEdgeSourceGeometry = trackGeometry(new THREE.EdgesGeometry(blockCoreGeometry));
+    const blockEdgeGeometry = trackGeometry(
+      new LineSegmentsGeometry().fromEdgesGeometry(blockEdgeSourceGeometry)
+    );
     const blockGroup = new THREE.Group();
     const blockTrailGroup = new THREE.Group();
     const trailGroup = new THREE.Group();
@@ -1139,25 +1133,28 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       const color = new THREE.Color(lane.color);
       const group = new THREE.Group();
       const bodyMaterial = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
-        color: 0x080e18,
-        metalness: 0.52,
-        roughness: 0.28,
+        color: color.clone().multiplyScalar(0.62),
+        metalness: 0.18,
+        roughness: 0.34,
         emissive: color,
-        emissiveIntensity: 0.35,
+        emissiveIntensity: 0.24,
         transparent: true,
-        opacity: 0.94,
-        clearcoat: 0.9,
-        clearcoatRoughness: 0.14,
+        opacity: 0.96,
+        clearcoat: 0.72,
+        clearcoatRoughness: 0.22,
         fog: true,
       }));
-      const edgeLineMaterial = tagMaterialOpacity(new THREE.LineBasicMaterial({
-        color: color.clone().lerp(colorWhite, 0.32),
+      const edgeLineMaterial = tagMaterialOpacity(new LineMaterial({
+        color: color.clone().lerp(colorWhite, 0.48),
+        linewidth: 2.35,
         transparent: true,
-        opacity: 0.88,
+        opacity: 0.96,
+        depthWrite: false,
         fog: true,
+        alphaToCoverage: true,
       }));
       const body = new THREE.Mesh(blockCoreGeometry, bodyMaterial);
-      const edges = new THREE.LineSegments(blockEdgeGeometry, edgeLineMaterial);
+      const edges = new LineSegments2(blockEdgeGeometry, edgeLineMaterial);
       body.rotation.set(Math.random() * 0.55, Math.random() * 0.35, Math.random() * Math.PI);
       edges.rotation.copy(body.rotation);
       group.add(body, edges);
@@ -1187,7 +1184,11 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
         group,
         body,
         edges,
-        materials: [bodyMaterial, edgeLineMaterial, approachTrailMaterial],
+        materials: [
+          bodyMaterial,
+          edgeLineMaterial,
+          approachTrailMaterial,
+        ],
         approachDirection,
         approachTrail,
         approachTrailGeometry,
@@ -1265,51 +1266,28 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldInverse);
       cutPlaneNormal.applyMatrix3(normalMatrix).normalize();
 
-      // Plane constant: distance from origin along the normal to the strike point
-      const planeConstant = -localStrikePoint.dot(cutPlaneNormal);
+      // Keep the strike offset inside the cube so every successful hit produces two solid halves.
+      const planeExtent = blockCoreSize * 0.5 * (
+        Math.abs(cutPlaneNormal.x)
+        + Math.abs(cutPlaneNormal.y)
+        + Math.abs(cutPlaneNormal.z)
+      );
+      const planeConstant = THREE.MathUtils.clamp(
+        -localStrikePoint.dot(cutPlaneNormal),
+        -planeExtent * 0.72,
+        planeExtent * 0.72
+      );
       cutPlane.set(cutPlaneNormal, planeConstant);
 
-      // Slice the block geometry
-      const sliced = sliceGeometry(blockCoreGeometry, cutPlane);
-
-      // Compute centroids for proper piece positioning
-      const getCentroid = (geo) => {
-        const pos = geo.getAttribute('position');
-        const c = new THREE.Vector3();
-        for (let i = 0; i < pos.count; i++) {
-          c.x += pos.getX(i);
-          c.y += pos.getY(i);
-          c.z += pos.getZ(i);
-        }
-        return pos.count > 0 ? c.divideScalar(pos.count) : c;
-      };
-
-      const centroidFront = getCentroid(sliced.front);
-      const centroidBack = getCentroid(sliced.back);
-
-      // Center each piece geometry on its own centroid
-      const centerGeometry = (geo, centroid) => {
-        const pos = geo.getAttribute('position');
-        for (let i = 0; i < pos.count; i++) {
-          pos.setXYZ(i,
-            pos.getX(i) - centroid.x,
-            pos.getY(i) - centroid.y,
-            pos.getZ(i) - centroid.z
-          );
-        }
-        pos.needsUpdate = true;
-        geo.computeBoundingSphere();
-      };
+      const sliced = sliceBoxGeometry(blockCoreSize, cutPlane);
+      const centroidFront = getVolumeCentroid(sliced.front);
+      const centroidBack = getVolumeCentroid(sliced.back);
 
       centerGeometry(sliced.front, centroidFront);
       centerGeometry(sliced.back, centroidBack);
 
-      // Orient the group so the split normal faces the x-axis (pieces fly apart on local x)
-      block.group.rotation.z = Math.atan2(splitNormal.y, splitNormal.x);
-
       const color = new THREE.Color(block.lane.color);
-      const hotColor = color.clone().lerp(colorWhite, 0.54);
-      const shellColor = color.clone().lerp(colorWhite, 0.16);
+      const shellColor = color.clone().multiplyScalar(0.68);
 
       // Keep sliced pieces colored so hits read as split cubes, not dark debris.
       const shellMaterialA = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
@@ -1328,16 +1306,17 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       const shellMaterialB = shellMaterialA.clone();
       tagMaterialOpacity(shellMaterialB);
 
-      // Inner cap material — bright glowing cross-section in the lane color
-      const capMaterialA = tagMaterialOpacity(new THREE.MeshBasicMaterial({
-        color: hotColor.clone().lerp(colorWhite, 0.38).multiplyScalar(2.5),
+      // The cut reveals a dark interior with only a subtle reflection of the lane color.
+      const capMaterialA = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(0x02040a).lerp(color, 0.035),
+        metalness: 0.02,
+        roughness: 0.94,
+        emissive: color.clone().multiplyScalar(0.015),
+        emissiveIntensity: 0.08,
         transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending,
-        fog: false,
+        opacity: 0.98,
+        fog: true,
         side: THREE.DoubleSide,
-        depthWrite: false,
-        toneMapped: false,
       }));
       const capMaterialB = capMaterialA.clone();
       tagMaterialOpacity(capMaterialB);
@@ -1346,18 +1325,20 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       const pieceA = new THREE.Mesh(sliced.front, [shellMaterialA, capMaterialA]);
       const pieceB = new THREE.Mesh(sliced.back, [shellMaterialB, capMaterialB]);
 
-      // Position each piece at its centroid offset
-      pieceA.position.copy(centroidFront);
-      pieceB.position.copy(centroidBack);
-
-      // Copy the body's local rotation so pieces start aligned with the original block
+      // Preserve the exact pre-cut pose, then move the halves in the group's local space.
+      const pieceCenterFront = centroidFront.clone().applyQuaternion(block.body.quaternion);
+      const pieceCenterBack = centroidBack.clone().applyQuaternion(block.body.quaternion);
+      pieceA.position.copy(pieceCenterFront);
+      pieceB.position.copy(pieceCenterBack);
       pieceA.rotation.copy(block.body.rotation);
       pieceB.rotation.copy(block.body.rotation);
 
       block.group.add(pieceA, pieceB);
       block.pieces = [pieceA, pieceB];
-      block.pieceCentroids = [centroidFront.clone(), centroidBack.clone()];
-      block.splitNormal = splitNormal.clone();
+      block.pieceCenters = [pieceCenterFront, pieceCenterBack];
+      block.splitNormalLocal = cutPlaneNormal.clone()
+        .applyQuaternion(block.body.quaternion)
+        .normalize();
       block.materials.push(shellMaterialA, shellMaterialB, capMaterialA, capMaterialB);
 
       // Track sliced geometries for disposal
@@ -1481,19 +1462,13 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       const eased = 1 - Math.pow(1 - amount, 2);
 
       if (block.pieces.length === 2) {
-        // Reset to centroid positions each frame, then push apart
-        block.pieces[0].position.copy(block.pieceCentroids[0]);
-        block.pieces[1].position.copy(block.pieceCentroids[1]);
+        block.pieces[0].position.copy(block.pieceCenters[0]);
+        block.pieces[1].position.copy(block.pieceCenters[1]);
 
-        // Push apart along the block's stored split normal
+        // Front and back move in opposite directions along the exact local cut normal.
         const splitOffset = eased * block.splitSpeed;
-        const bsn = block.splitNormal;
-        const dot0 = block.pieceCentroids[0].dot(bsn);
-        const dot1 = block.pieceCentroids[1].dot(bsn);
-        const sign0 = dot0 >= dot1 ? 1 : -1;
-
-        block.pieces[0].position.addScaledVector(bsn, sign0 * splitOffset);
-        block.pieces[1].position.addScaledVector(bsn, -sign0 * splitOffset);
+        block.pieces[0].position.addScaledVector(block.splitNormalLocal, splitOffset);
+        block.pieces[1].position.addScaledVector(block.splitNormalLocal, -splitOffset);
 
         block.pieces[0].position.y += Math.sin(amount * Math.PI) * 0.06;
         block.pieces[1].position.y += Math.sin(amount * Math.PI) * 0.04;
