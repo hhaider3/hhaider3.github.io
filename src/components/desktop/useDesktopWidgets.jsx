@@ -5,6 +5,7 @@ import SystemStats from '../SystemStats';
 
 const useDesktopWidgets = ({
   handleStatsExpandedChange,
+  isMobile,
   isStatsExpanded,
   setThemeColors,
   theme,
@@ -36,10 +37,10 @@ const useDesktopWidgets = ({
         theme={theme}
         colors={themeColors}
         onColorsChange={setThemeColors}
-        wheelSize={104}
+        wheelSize={isMobile ? 84 : 104}
       />
     ),
   },
-], [handleStatsExpandedChange, isStatsExpanded, setThemeColors, theme, themeColors]);
+], [handleStatsExpandedChange, isMobile, isStatsExpanded, setThemeColors, theme, themeColors]);
 
 export default useDesktopWidgets;

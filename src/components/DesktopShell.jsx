@@ -113,6 +113,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 
   const widgets = useDesktopWidgets({
     handleStatsExpandedChange,
+    isMobile,
     isStatsExpanded,
     setThemeColors,
     theme,
