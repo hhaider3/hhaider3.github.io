@@ -2897,7 +2897,7 @@ footer {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
-.desktop-widgets .color-switcher-inline {
+.desktop-widgets-freeform .color-switcher-inline {
     display: grid;
     grid-template-columns: 112px minmax(0, 1fr);
     grid-template-areas:
@@ -2912,12 +2912,12 @@ footer {
     color: var(--text-primary);
 }
 
-.desktop-widgets .cs-header {
+.desktop-widgets-freeform .cs-header {
     grid-area: header;
     padding: 2px 0 0;
 }
 
-.desktop-widgets .cs-tabs {
+.desktop-widgets-freeform .cs-tabs {
     grid-area: tabs;
     padding: 3px;
     border: 1px solid rgba(184, 215, 242, 0.14);
@@ -2925,30 +2925,30 @@ footer {
     background: rgba(2, 9, 22, 0.2);
 }
 
-.desktop-widgets .cs-tab {
+.desktop-widgets-freeform .cs-tab {
     min-height: 28px;
     padding: 5px 8px;
     font-size: 10px;
 }
 
-.desktop-widgets .cs-tab.active {
+.desktop-widgets-freeform .cs-tab.active {
     background: rgba(255, 255, 255, 0.12);
     border-color: rgba(192, 229, 255, 0.28);
 }
 
-.desktop-widgets .cs-wheel-wrapper {
+.desktop-widgets-freeform .cs-wheel-wrapper {
     grid-area: wheel;
     align-items: start;
     padding: 0;
 }
 
-.desktop-widgets .cs-lightness {
+.desktop-widgets-freeform .cs-lightness {
     grid-area: lightness;
     align-self: start;
     padding: 8px 0 0;
 }
 
-.desktop-widgets .cs-slider-label {
+.desktop-widgets-freeform .cs-slider-label {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2956,7 +2956,7 @@ footer {
     font-size: 10px;
 }
 
-.desktop-widgets .cs-slider-label output {
+.desktop-widgets-freeform .cs-slider-label output {
     color: rgba(239, 248, 255, 0.76);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 9px;
@@ -2964,19 +2964,19 @@ footer {
     letter-spacing: 0.04em;
 }
 
-.desktop-widgets .cs-preview {
+.desktop-widgets-freeform .cs-preview {
     grid-area: preview;
     align-self: end;
     padding: 0 0 3px;
 }
 
-.desktop-widgets .cs-preview-swatch,
-.desktop-widgets .cs-preview-gradient {
+.desktop-widgets-freeform .cs-preview-swatch,
+.desktop-widgets-freeform .cs-preview-gradient {
     height: 28px;
     border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.desktop-widgets .cs-reset {
+.desktop-widgets-freeform .cs-reset {
     grid-area: reset;
     justify-self: end;
     margin: 0;
