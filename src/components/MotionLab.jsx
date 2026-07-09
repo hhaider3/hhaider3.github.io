@@ -923,6 +923,34 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const scrollingFloorLines = new THREE.Group();
     scrollingFloorLines.add(crossLaneLines.lines);
 
+    const swordFloorPoolOuterMaterial = trackMaterial(new THREE.MeshBasicMaterial({
+      color: 0x8b5cf6,
+      transparent: true,
+      opacity: 0.075,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }));
+    const swordFloorPoolOuter = new THREE.Mesh(
+      trackGeometry(new THREE.CircleGeometry(0.82, 48)),
+      swordFloorPoolOuterMaterial
+    );
+    swordFloorPoolOuter.rotation.x = -Math.PI / 2;
+
+    const swordFloorPoolInnerMaterial = trackMaterial(new THREE.MeshBasicMaterial({
+      color: 0x18f5ff,
+      transparent: true,
+      opacity: 0.1,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }));
+    const swordFloorPoolInner = new THREE.Mesh(
+      trackGeometry(new THREE.CircleGeometry(0.48, 48)),
+      swordFloorPoolInnerMaterial
+    );
+    swordFloorPoolInner.rotation.x = -Math.PI / 2;
+
     const swordFloorBase = new THREE.Mesh(
       trackGeometry(new THREE.CircleGeometry(0.18, 32)),
       trackMaterial(new THREE.MeshBasicMaterial({
@@ -948,6 +976,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       }))
     );
     swordFloorTip.rotation.x = -Math.PI / 2;
+    const floorImpactGroup = new THREE.Group();
 
     floorGroup.add(
       floorSurface,
@@ -955,8 +984,11 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       longitudinalLaneLines.glow,
       longitudinalLaneLines.lines,
       scrollingFloorLines,
+      swordFloorPoolOuter,
+      swordFloorPoolInner,
       swordFloorBase,
-      swordFloorTip
+      swordFloorTip,
+      floorImpactGroup
     );
     scene.add(floorGroup);
 
@@ -972,6 +1004,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const trailGroup = new THREE.Group();
     const activeBlocks = [];
     const trailSegments = [];
+    const floorImpacts = [];
     const colorWhite = new THREE.Color(0xffffff);
     const bladeBaseWorld = new THREE.Vector3();
     const bladeTipWorld = new THREE.Vector3();
@@ -1048,6 +1081,58 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       );
       projectedPoint.copy(start).addScaledVector(segmentVector, amount);
       return projectedPoint.distanceTo(point);
+    };
+
+    const disposeFloorImpact = (impact) => {
+      floorImpactGroup.remove(impact.ring, impact.flash);
+      impact.ring.geometry.dispose();
+      impact.ring.material.dispose();
+      impact.flash.geometry.dispose();
+      impact.flash.material.dispose();
+    };
+
+    const createFloorImpact = (strikePoint, color, intensity) => {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.13, 0.17, 40),
+        new THREE.MeshBasicMaterial({
+          color: color.clone().lerp(colorWhite, 0.32),
+          transparent: true,
+          opacity: 0.72,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          fog: true,
+          side: THREE.DoubleSide,
+        })
+      );
+      const flash = new THREE.Mesh(
+        new THREE.CircleGeometry(0.16, 40),
+        new THREE.MeshBasicMaterial({
+          color: color.clone().lerp(new THREE.Color(0x18f5ff), 0.35),
+          transparent: true,
+          opacity: 0.18 + intensity * 0.14,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          fog: true,
+          side: THREE.DoubleSide,
+        })
+      );
+      [ring, flash].forEach((mesh) => {
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(strikePoint.x, swordFloorY + 0.026, strikePoint.z);
+      });
+      floorImpactGroup.add(ring, flash);
+      floorImpacts.push({
+        ring,
+        flash,
+        age: 0,
+        life: 0.46 + intensity * 0.14,
+        ringOpacity: ring.material.opacity,
+        flashOpacity: flash.material.opacity,
+      });
+
+      if (floorImpacts.length > 14) {
+        disposeFloorImpact(floorImpacts.shift());
+      }
     };
 
     const createBlock = (lane) => {
@@ -1143,6 +1228,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       block.body.visible = false;
       block.edges.visible = false;
       block.approachTrail.visible = false;
+      createFloorImpact(strikePoint, new THREE.Color(block.lane.color), intensity);
 
       // Compute slash direction in screen-aligned space
       cameraRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
@@ -1337,7 +1423,27 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       }
     };
 
+    const updateFloorImpacts = (delta) => {
+      for (let index = floorImpacts.length - 1; index >= 0; index -= 1) {
+        const impact = floorImpacts[index];
+        impact.age += delta;
+        const amount = THREE.MathUtils.clamp(impact.age / impact.life, 0, 1);
+        const eased = 1 - Math.pow(1 - amount, 2);
+        impact.ring.scale.setScalar(THREE.MathUtils.lerp(0.55, 3.8, eased));
+        impact.ring.material.opacity = impact.ringOpacity * Math.pow(1 - amount, 1.7);
+        impact.flash.scale.setScalar(THREE.MathUtils.lerp(0.7, 2.2, eased));
+        impact.flash.material.opacity = impact.flashOpacity * Math.pow(1 - amount, 2.4);
+
+        if (amount >= 1) {
+          disposeFloorImpact(impact);
+          floorImpacts.splice(index, 1);
+        }
+      }
+    };
+
     const updateSwordFloorProjection = () => {
+      swordFloorPoolOuter.position.set(bladeBaseWorld.x, swordFloorY + 0.014, bladeBaseWorld.z);
+      swordFloorPoolInner.position.set(bladeBaseWorld.x, swordFloorY + 0.018, bladeBaseWorld.z);
       swordFloorBase.position.set(bladeBaseWorld.x, swordFloorY + 0.044, bladeBaseWorld.z);
       swordFloorTip.position.set(bladeTipWorld.x, swordFloorY + 0.048, bladeTipWorld.z);
     };
@@ -1606,6 +1712,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       }
 
       updateTrailSegments(delta);
+      updateFloorImpacts(delta);
       const floorTravelDistance = ((time - gameStartAt) / 1000) * floorScrollSpeed;
       scrollingFloorLines.position.z = floorTravelDistance % floorLaneSpacing;
       updateBlocks(time, delta, canCut, slashSpeed, slashIntensity);
@@ -1614,6 +1721,9 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       bladeGlow.scale.set(glowPulse, glowPulse, 1);
       guardGlow.scale.set(1, 1 + Math.sin(time / 220) * 0.025, 1);
       pivotGlow.scale.setScalar(1 + Math.sin(time / 150) * 0.18);
+      const floorPoolPulse = 1 + Math.sin(time / 520) * 0.055;
+      swordFloorPoolOuter.scale.setScalar(floorPoolPulse);
+      swordFloorPoolInner.scale.setScalar(1 + Math.sin(time / 430 + 0.8) * 0.04);
       renderer.render(scene, camera);
       animationFrame = requestAnimationFrame(animate);
     };
@@ -1629,6 +1739,9 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       }
       while (trailSegments.length > 0) {
         disposeTrailSegment(trailSegments.pop());
+      }
+      while (floorImpacts.length > 0) {
+        disposeFloorImpact(floorImpacts.pop());
       }
       geometries.forEach(geometry => geometry.dispose());
       materials.forEach(material => material.dispose());
