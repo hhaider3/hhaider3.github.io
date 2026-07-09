@@ -36,7 +36,7 @@ const useDesktopWidgets = ({
         theme={theme}
         colors={themeColors}
         onColorsChange={setThemeColors}
-        wheelSize={72}
+        wheelSize={104}
       />
     ),
   },

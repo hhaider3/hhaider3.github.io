@@ -1906,9 +1906,10 @@ footer {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--secondary);
+    letter-spacing: 0.9px;
+    color: rgba(221, 237, 249, 0.68);
     margin-top: 8px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.38);
 }
 
 .sys-stats-toggle {
@@ -2563,15 +2564,15 @@ footer {
 
 .glass-widget {
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.07)),
-        rgba(9, 20, 36, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.26);
+        linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08)),
+        rgba(8, 20, 37, 0.36);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.32),
         0 18px 48px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(13px) saturate(1.18);
-    -webkit-backdrop-filter: blur(18px) saturate(1.18);
+    backdrop-filter: blur(18px) saturate(1.16);
+    -webkit-backdrop-filter: blur(18px) saturate(1.16);
     overflow: hidden;
 }
 
@@ -2594,7 +2595,7 @@ footer {
     padding: 0 9px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.14);
     color: rgba(247, 251, 255, 0.86);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.07));
     cursor: move;
     display: flex;
     align-items: center;
@@ -2718,6 +2719,16 @@ footer {
     padding: 12px 14px 18px;
 }
 
+.widget-clock {
+    background:
+        linear-gradient(160deg, rgba(221, 243, 255, 0.18), rgba(104, 183, 231, 0.06)),
+        rgba(12, 40, 70, 0.42);
+}
+
+.widget-clock .desktop-widget-grip {
+    border-bottom-color: rgba(163, 224, 255, 0.26);
+}
+
 .widget-stats .desktop-widget-body {
     overflow: hidden;
 }
@@ -2726,8 +2737,35 @@ footer {
     padding: 10px;
 }
 
+.widget-stats {
+    background:
+        linear-gradient(155deg, rgba(38, 151, 199, 0.14), rgba(8, 21, 42, 0.08) 46%),
+        rgba(5, 18, 36, 0.68);
+    border-color: rgba(117, 219, 255, 0.34);
+    box-shadow:
+        inset 0 1px 0 rgba(198, 244, 255, 0.22),
+        0 18px 48px rgba(0, 0, 0, 0.34);
+}
+
+.widget-stats .desktop-widget-grip {
+    border-bottom-color: rgba(100, 211, 255, 0.28);
+    background: linear-gradient(180deg, rgba(61, 173, 224, 0.22), rgba(8, 26, 48, 0.18));
+}
+
 .desktop-widgets-freeform .widget-colors .desktop-widget-body {
     padding: 8px 8px 14px;
+}
+
+.widget-colors {
+    background:
+        linear-gradient(160deg, rgba(31, 50, 89, 0.26), rgba(8, 17, 34, 0.08) 52%),
+        rgba(5, 14, 29, 0.74);
+    border-color: rgba(184, 205, 238, 0.3);
+}
+
+.widget-colors .desktop-widget-grip {
+    border-bottom-color: rgba(177, 199, 239, 0.24);
+    background: linear-gradient(180deg, rgba(81, 105, 158, 0.24), rgba(10, 20, 40, 0.2));
 }
 
 .desktop-widget-resize-handle {
@@ -2860,48 +2898,89 @@ footer {
 }
 
 .desktop-widgets .color-switcher-inline {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-areas:
+        "header header"
+        "tabs tabs"
+        "wheel lightness"
+        "wheel preview"
+        "reset reset";
+    align-content: start;
+    column-gap: 12px;
+    row-gap: 6px;
     color: var(--text-primary);
 }
 
 .desktop-widgets .cs-header {
-    padding: 5px 10px 3px;
+    grid-area: header;
+    padding: 2px 0 0;
 }
 
 .desktop-widgets .cs-tabs {
-    padding: 3px 8px;
+    grid-area: tabs;
+    padding: 3px;
+    border: 1px solid rgba(184, 215, 242, 0.14);
+    border-radius: 7px;
+    background: rgba(2, 9, 22, 0.2);
 }
 
 .desktop-widgets .cs-tab {
-    padding: 4px 7px;
+    min-height: 28px;
+    padding: 5px 8px;
     font-size: 10px;
 }
 
+.desktop-widgets .cs-tab.active {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(192, 229, 255, 0.28);
+}
+
 .desktop-widgets .cs-wheel-wrapper {
+    grid-area: wheel;
+    align-items: start;
     padding: 0;
 }
 
 .desktop-widgets .cs-lightness {
-    padding: 0 10px 3px;
+    grid-area: lightness;
+    align-self: start;
+    padding: 8px 0 0;
 }
 
 .desktop-widgets .cs-slider-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 3px;
     font-size: 10px;
 }
 
+.desktop-widgets .cs-slider-label output {
+    color: rgba(239, 248, 255, 0.76);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+
 .desktop-widgets .cs-preview {
-    padding: 0 10px 3px;
+    grid-area: preview;
+    align-self: end;
+    padding: 0 0 3px;
 }
 
 .desktop-widgets .cs-preview-swatch,
 .desktop-widgets .cs-preview-gradient {
-    height: 22px;
+    height: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .desktop-widgets .cs-reset {
-    width: fit-content;
-    margin: 16px auto 6px;
-    padding: 6px 16px;
+    grid-area: reset;
+    justify-self: end;
+    margin: 0;
+    padding: 5px 11px;
     font-size: 10px;
 }
 

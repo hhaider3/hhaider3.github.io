@@ -270,7 +270,10 @@ const ColorSwitcher = ({
       </div>
 
       <div className="cs-lightness">
-        <label className="cs-slider-label" style={{ color: primaryColor }}>Lightness</label>
+        <label className="cs-slider-label" style={{ color: primaryColor }}>
+          <span>Lightness</span>
+          <output>{activeColor.toUpperCase()}</output>
+        </label>
         <div className="cs-slider-row">
           <input
             type="range"
