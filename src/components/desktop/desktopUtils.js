@@ -14,13 +14,13 @@ export const widgetLabels = {
   stats: 'System',
   colors: 'Colors',
 };
+export const statsCollapsedWidgetHeight = 194;
+export const statsExpandedWidgetHeight = 330;
 export const widgetMinimums = {
   clock: { w: 260, h: 132 },
-  stats: { w: 250, h: 150 },
+  stats: { w: 250, h: statsCollapsedWidgetHeight },
   colors: { w: 260, h: 260 },
 };
-export const statsCollapsedWidgetHeight = 182;
-export const statsExpandedWidgetHeight = 318;
 export const desktopIconOrder = [
   'about',
   'experience',
@@ -175,10 +175,13 @@ export const getInitialWidgetRects = () => {
   const rects = Object.keys(defaultWidgets).reduce((nextRects, id) => {
     let rect = savedLayout?.widgets?.[id] || defaultWidgets[id];
 
-    if (id === 'stats' && isStatsExpanded) {
+    if (id === 'stats') {
       rect = {
         ...rect,
-        h: Math.max(rect.h || 0, statsExpandedWidgetHeight),
+        h: Math.max(
+          rect.h || 0,
+          isStatsExpanded ? statsExpandedWidgetHeight : statsCollapsedWidgetHeight
+        ),
       };
     }
 

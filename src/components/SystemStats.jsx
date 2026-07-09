@@ -113,11 +113,11 @@ const GaugeDial = ({ value, min = 0, max, label, unit, tickCount = 5 }) => {
         <circle cx={CX} cy={CY} r="6" className="gauge-pivot-outer" />
         <circle cx={CX} cy={CY} r="3" className="gauge-pivot-inner" />
 
-        {/* Digital readout */}
+        {/* Integrated digital readout */}
         <text x={CX} y={CY + 24} className="gauge-readout">
           {Math.round(value)}
         </text>
-        <text x={CX} y={CY + 36} className="gauge-unit">
+        <text x={CX} y={CY + 39} className="gauge-unit">
           {unit}
         </text>
       </svg>
@@ -240,15 +240,15 @@ const SystemStats = ({ isExpanded: controlledExpanded, onExpandedChange } = {}) 
       id: 'fps',
       value: fps,
       max: 120,
-      label: 'FPS',
-      unit: 'frames/s',
+      label: 'Frame rate',
+      unit: 'FPS',
       tickCount: 7,
     },
     {
       id: 'heap',
       value: mem.used,
       max: Math.max(mem.total, 50),
-      label: 'Heap',
+      label: 'Heap usage',
       unit: 'MB',
       tickCount: 6,
     },

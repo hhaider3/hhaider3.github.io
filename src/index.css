@@ -1870,22 +1870,36 @@ footer {
     fill: var(--bg-primary);
 }
 
-/* ── Digital readout ── */
+/* ── Integrated digital readout ── */
 .gauge-readout {
-    fill: var(--secondary);
-    font-size: 18px;
+    fill: #f8fbff;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 28px;
     font-weight: 800;
+    letter-spacing: 0.06em;
     text-anchor: middle;
-    font-family: 'Outfit', var(--font-heading);
     font-variant-numeric: tabular-nums;
+    paint-order: stroke fill;
+    stroke: rgba(2, 10, 21, 0.46);
+    stroke-width: 1.8px;
 }
 
 .gauge-unit {
-    fill: var(--secondary);
-    font-size: 8px;
-    font-weight: 600;
+    fill: #9feeff;
+    font-family: var(--font-heading);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
     text-anchor: middle;
-    letter-spacing: 0.8px;
+}
+
+[data-theme="light"] .gauge-readout {
+    fill: #17324b;
+    stroke: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .gauge-unit {
+    fill: #176d8d;
 }
 
 .gauge-dial-label {
@@ -1894,7 +1908,7 @@ footer {
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--secondary);
-    margin-top: -6px;
+    margin-top: 8px;
 }
 
 .sys-stats-toggle {
@@ -2819,7 +2833,7 @@ footer {
 }
 
 .desktop-widgets .gauge-dial-label {
-    margin-top: -9px;
+    margin-top: 6px;
     font-size: 9px;
     letter-spacing: 0.8px;
 }
