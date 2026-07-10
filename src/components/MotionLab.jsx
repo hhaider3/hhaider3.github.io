@@ -21,6 +21,7 @@ import {
 import { createQrPath } from '../utils/qrCode';
 
 const publishEndpoint = '/api/motion/publish';
+const feedbackEndpoint = '/api/motion/feedback';
 const socketEndpoint = '/api/motion/socket';
 const configEndpoint = '/api/motion/config';
 const hostedRelayUrl = 'https://motion-lab-relay.onrender.com';
@@ -208,6 +209,8 @@ const blockFirstSpawnDelayMs = 900;
 const blockSpawnStartIntervalMs = 1450;
 const blockSpawnMinIntervalMs = 680;
 const blockSpawnRampDurationMs = 90_000;
+const blockLaneCooldownMs = 1700;
+const blockRecentLaneCount = 2;
 const maxActiveBlocks = 7;
 const slashTrailMinSpeed = 4.2;
 const slashTrailVisibleMinIntensity = 0.14;
@@ -569,6 +572,9 @@ const sliceBoxGeometry = (size, plane) => {
   return {
     front: buildHalf(true),
     back: buildHalf(false),
+    cutOutline: capPoints.length >= 3
+      ? sortPointsOnPlane(capPoints, plane.normal)
+      : [],
   };
 };
 
@@ -636,6 +642,8 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 50);
     camera.position.set(0, 1.05, 5.4);
     camera.lookAt(0, 0, 0);
+    const cameraBasePosition = camera.position.clone();
+    const cameraLookTarget = new THREE.Vector3(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -996,9 +1004,13 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const blockGroup = new THREE.Group();
     const blockTrailGroup = new THREE.Group();
     const trailGroup = new THREE.Group();
+    const impactGroup = new THREE.Group();
     const activeBlocks = [];
     const trailSegments = [];
     const floorImpacts = [];
+    const hitSparks = [];
+    const recentLaneIds = [];
+    const laneCooldowns = new Map();
     const colorWhite = new THREE.Color(0xffffff);
     const bladeBaseWorld = new THREE.Vector3();
     const bladeTipWorld = new THREE.Vector3();
@@ -1008,6 +1020,10 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const segmentVector = new THREE.Vector3();
     const pointVector = new THREE.Vector3();
     const projectedPoint = new THREE.Vector3();
+    const segmentCandidate = new THREE.Vector3();
+    const triangleCandidate = new THREE.Vector3();
+    const bladeSweepTriangleA = new THREE.Triangle();
+    const bladeSweepTriangleB = new THREE.Triangle();
     const cutPlane = new THREE.Plane();
     const cutPlaneNormal = new THREE.Vector3();
     const localStrikePoint = new THREE.Vector3();
@@ -1016,9 +1032,14 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const cameraRight = new THREE.Vector3();
     const cameraUp = new THREE.Vector3();
     let hasPreviousBlade = false;
+    let hitStopRemaining = 0;
+    let cameraShakeAge = 1;
+    let cameraShakeDuration = 0;
+    let cameraShakeStrength = 0;
+    let audioContext = null;
     const gameStartAt = performance.now();
     let nextBlockAt = gameStartAt + blockFirstSpawnDelayMs;
-    scene.add(blockGroup, blockTrailGroup, trailGroup);
+    scene.add(blockGroup, blockTrailGroup, trailGroup, impactGroup);
 
     const tagMaterialOpacity = (material) => {
       material.userData.baseOpacity = material.opacity;
@@ -1038,14 +1059,178 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       blockTrailGroup.remove(block.approachTrail);
       block.materials.forEach(material => material.dispose());
       block.approachTrailGeometry.dispose();
+      block.cutRimGeometry?.dispose();
       if (block.slicedGeometries) {
         block.slicedGeometries.forEach(geo => geo.dispose());
       }
       block.group.clear();
     };
 
-    const scoreBlock = (result) => {
-      onBlockScoredRef.current?.(result);
+    const scoreBlock = (result, detail) => {
+      onBlockScoredRef.current?.(result, detail);
+    };
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const ensureAudioContext = () => {
+      if (!AudioContextClass) {
+        return null;
+      }
+
+      if (!audioContext) {
+        audioContext = new AudioContextClass();
+      }
+
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+
+      return audioContext;
+    };
+
+    const playHitSound = (intensity) => {
+      const context = ensureAudioContext();
+      if (!context) {
+        return;
+      }
+
+      const play = () => {
+        if (context.state !== 'running') {
+          return;
+        }
+
+        const now = context.currentTime;
+        const gain = context.createGain();
+        const body = context.createOscillator();
+        const sparkle = context.createOscillator();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.075 + intensity * 0.055, now + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.17);
+        body.type = 'triangle';
+        body.frequency.setValueAtTime(260 + intensity * 130, now);
+        body.frequency.exponentialRampToValueAtTime(82, now + 0.17);
+        sparkle.type = 'sine';
+        sparkle.frequency.setValueAtTime(720 + intensity * 420, now);
+        sparkle.frequency.exponentialRampToValueAtTime(360, now + 0.09);
+        body.connect(gain);
+        sparkle.connect(gain);
+        gain.connect(context.destination);
+        body.start(now);
+        sparkle.start(now);
+        body.stop(now + 0.18);
+        sparkle.stop(now + 0.1);
+      };
+
+      if (context.state === 'running') {
+        play();
+      } else {
+        context.resume().then(play).catch(() => {});
+      }
+    };
+
+    window.addEventListener('pointerdown', ensureAudioContext, { passive: true });
+    window.addEventListener('keydown', ensureAudioContext);
+
+    const triggerCameraImpact = (intensity) => {
+      hitStopRemaining = Math.max(hitStopRemaining, 0.032 + intensity * 0.016);
+      cameraShakeAge = 0;
+      cameraShakeDuration = 0.14 + intensity * 0.06;
+      cameraShakeStrength = 0.014 + intensity * 0.018;
+    };
+
+    const applyCameraShake = (time, delta) => {
+      camera.position.copy(cameraBasePosition);
+
+      if (cameraShakeAge < cameraShakeDuration) {
+        cameraShakeAge += delta;
+        const amount = THREE.MathUtils.clamp(1 - cameraShakeAge / cameraShakeDuration, 0, 1);
+        const strength = cameraShakeStrength * amount * amount;
+        camera.position.x += Math.sin(time * 0.19) * strength;
+        camera.position.y += Math.cos(time * 0.23) * strength * 0.72;
+        camera.position.z += Math.sin(time * 0.16 + 0.8) * strength * 0.35;
+      }
+
+      camera.lookAt(cameraLookTarget);
+    };
+
+    const disposeHitSpark = (spark) => {
+      impactGroup.remove(spark.points);
+      spark.geometry.dispose();
+      spark.material.dispose();
+    };
+
+    const createHitSparks = (strikePoint, color, intensity, normal) => {
+      const particleCount = 16 + Math.round(intensity * 10);
+      const positions = new Float32Array(particleCount * 3);
+      const velocities = new Float32Array(particleCount * 3);
+
+      for (let index = 0; index < particleCount; index += 1) {
+        const offset = index * 3;
+        const side = Math.random() > 0.5 ? 1 : -1;
+        const speed = 0.72 + Math.random() * (1.1 + intensity * 0.75);
+        positions[offset] = strikePoint.x;
+        positions[offset + 1] = strikePoint.y;
+        positions[offset + 2] = strikePoint.z;
+        velocities[offset] = normal.x * side * speed + (Math.random() - 0.5) * 0.9;
+        velocities[offset + 1] = normal.y * side * speed + (Math.random() - 0.2) * 0.9;
+        velocities[offset + 2] = normal.z * side * speed + (Math.random() - 0.5) * 0.85;
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      const positionAttribute = new THREE.BufferAttribute(positions, 3);
+      positionAttribute.setUsage(THREE.DynamicDrawUsage);
+      geometry.setAttribute('position', positionAttribute);
+      const material = new THREE.PointsMaterial({
+        color: color.clone().lerp(colorWhite, 0.42),
+        size: 0.035 + intensity * 0.025,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        fog: true,
+        sizeAttenuation: true,
+      });
+      const points = new THREE.Points(geometry, material);
+      impactGroup.add(points);
+      hitSparks.push({
+        points,
+        geometry,
+        material,
+        velocities,
+        age: 0,
+        life: 0.28 + intensity * 0.16,
+      });
+    };
+
+    const updateHitSparks = (delta) => {
+      for (let sparkIndex = hitSparks.length - 1; sparkIndex >= 0; sparkIndex -= 1) {
+        const spark = hitSparks[sparkIndex];
+        const positions = spark.geometry.getAttribute('position');
+        spark.age += delta;
+
+        for (let index = 0; index < positions.count; index += 1) {
+          const offset = index * 3;
+          spark.velocities[offset + 1] -= 1.65 * delta;
+          positions.setXYZ(
+            index,
+            positions.getX(index) + spark.velocities[offset] * delta,
+            positions.getY(index) + spark.velocities[offset + 1] * delta,
+            positions.getZ(index) + spark.velocities[offset + 2] * delta
+          );
+          spark.velocities[offset] *= 0.985;
+          spark.velocities[offset + 1] *= 0.985;
+          spark.velocities[offset + 2] *= 0.985;
+        }
+
+        positions.needsUpdate = true;
+        const amount = THREE.MathUtils.clamp(1 - spark.age / spark.life, 0, 1);
+        spark.material.opacity = 0.95 * amount * amount;
+        spark.material.size = (0.035 + 0.025 * amount) * amount;
+
+        if (amount <= 0) {
+          disposeHitSpark(spark);
+          hitSparks.splice(sparkIndex, 1);
+        }
+      }
     };
 
     const disposeTrailSegment = (segment) => {
@@ -1059,12 +1244,12 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       trailSegments.splice(index, 1);
     };
 
-    const getDistanceToSegment = (point, start, end) => {
+    const getDistanceToSegment = (point, start, end, target) => {
       segmentVector.copy(end).sub(start);
       const lengthSq = segmentVector.lengthSq();
 
       if (lengthSq <= 0.0001) {
-        projectedPoint.copy(start);
+        target.copy(start);
         return point.distanceTo(start);
       }
 
@@ -1073,8 +1258,36 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
         0,
         1
       );
-      projectedPoint.copy(start).addScaledVector(segmentVector, amount);
-      return projectedPoint.distanceTo(point);
+      target.copy(start).addScaledVector(segmentVector, amount);
+      return target.distanceTo(point);
+    };
+
+    const getSweptBladeDistance = (point) => {
+      let closestDistance = Infinity;
+      const considerCandidate = (distance, candidate) => {
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          projectedPoint.copy(candidate);
+        }
+      };
+
+      considerCandidate(
+        getDistanceToSegment(point, bladeBaseWorld, bladeTipWorld, segmentCandidate),
+        segmentCandidate
+      );
+      considerCandidate(
+        getDistanceToSegment(point, previousBladeBase, previousBladeTip, segmentCandidate),
+        segmentCandidate
+      );
+
+      bladeSweepTriangleA.set(previousBladeBase, previousBladeTip, bladeTipWorld);
+      bladeSweepTriangleA.closestPointToPoint(point, triangleCandidate);
+      considerCandidate(point.distanceTo(triangleCandidate), triangleCandidate);
+      bladeSweepTriangleB.set(previousBladeBase, bladeTipWorld, bladeBaseWorld);
+      bladeSweepTriangleB.closestPointToPoint(point, triangleCandidate);
+      considerCandidate(point.distanceTo(triangleCandidate), triangleCandidate);
+
+      return closestDistance;
     };
 
     const disposeFloorImpact = (impact) => {
@@ -1218,7 +1431,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
 
     const cutBlock = (block, motionVector, intensity, strikePoint) => {
       block.state = 'cut';
-      scoreBlock('hit');
+      scoreBlock('hit', { intensity, color: block.lane.color });
       block.cutAge = 0;
       block.cutLife = 1.18 + intensity * 0.34;
       block.splitSpeed = 0.28 + intensity * 0.28;
@@ -1254,6 +1467,10 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
         splitNormal.set(1, 0, 0);
       }
       splitNormal.normalize();
+      const impactColor = new THREE.Color(block.lane.color);
+      triggerCameraImpact(intensity);
+      createHitSparks(strikePoint, impactColor, intensity, splitNormal);
+      playHitSound(intensity);
 
       // Transform the strike point into the block's local space to place the cut plane
       const worldInverse = new THREE.Matrix4().copy(block.body.matrixWorld).invert();
@@ -1280,6 +1497,21 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       cutPlane.set(cutPlaneNormal, planeConstant);
 
       const sliced = sliceBoxGeometry(blockCoreSize, cutPlane);
+      const cutRimGeometry = new THREE.BufferGeometry().setFromPoints(sliced.cutOutline);
+      const cutRimMaterial = tagMaterialOpacity(new THREE.LineBasicMaterial({
+        color: impactColor.clone().lerp(colorWhite, 0.72),
+        transparent: true,
+        opacity: 0.96,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        fog: false,
+      }));
+      const cutRim = new THREE.LineLoop(cutRimGeometry, cutRimMaterial);
+      cutRim.rotation.copy(block.body.rotation);
+      cutRim.renderOrder = 3;
+      block.group.add(cutRim);
+      block.cutRim = cutRim;
+      block.cutRimGeometry = cutRimGeometry;
       const centroidFront = getVolumeCentroid(sliced.front);
       const centroidBack = getVolumeCentroid(sliced.back);
 
@@ -1339,7 +1571,13 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       block.splitNormalLocal = cutPlaneNormal.clone()
         .applyQuaternion(block.body.quaternion)
         .normalize();
-      block.materials.push(shellMaterialA, shellMaterialB, capMaterialA, capMaterialB);
+      block.materials.push(
+        shellMaterialA,
+        shellMaterialB,
+        capMaterialA,
+        capMaterialB,
+        cutRimMaterial
+      );
 
       // Track sliced geometries for disposal
       block.slicedGeometries = [sliced.front, sliced.back];
@@ -1448,7 +1686,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       block.edges.rotation.copy(block.body.rotation);
 
       if (canCut && slashSpeed > slashCutMinSpeed) {
-        const strikeDistance = getDistanceToSegment(block.group.position, bladeBaseWorld, bladeTipWorld);
+        const strikeDistance = getSweptBladeDistance(block.group.position);
 
         if (strikeDistance <= blockCutRadius) {
           cutBlock(block, slashVector, slashIntensity, projectedPoint);
@@ -1481,6 +1719,12 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       block.group.position.y += block.fallVelocity * delta;
       block.group.rotation.z += block.cutSpin * delta;
       fadeBlockMaterials(block, 1 - amount);
+
+      if (block.cutRim) {
+        const rimAmount = THREE.MathUtils.clamp(1 - block.cutAge / 0.16, 0, 1);
+        block.cutRim.material.opacity = block.cutRim.material.userData.baseOpacity
+          * rimAmount * rimAmount;
+      }
     };
 
     const updateMissedBlock = (block, delta) => {
@@ -1502,9 +1746,29 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       fadeBlockMaterials(block, THREE.MathUtils.clamp((1 - amount) * 1.9, 0, 1));
     };
 
+    const pickSpawnLane = (time) => {
+      const available = blockLaneConfigs.filter((lane) => (
+        (laneCooldowns.get(lane.id) || 0) <= time
+        && !recentLaneIds.includes(lane.id)
+      ));
+      const fallback = blockLaneConfigs.filter((lane) => (
+        lane.id !== recentLaneIds[recentLaneIds.length - 1]
+      ));
+      const candidates = available.length > 0 ? available : fallback;
+      const lane = candidates[Math.floor(Math.random() * candidates.length)];
+
+      laneCooldowns.set(lane.id, time + blockLaneCooldownMs);
+      recentLaneIds.push(lane.id);
+      if (recentLaneIds.length > blockRecentLaneCount) {
+        recentLaneIds.shift();
+      }
+
+      return lane;
+    };
+
     const updateBlocks = (time, delta, canCut, slashSpeed, slashIntensity) => {
       if (time >= nextBlockAt && activeBlocks.length < maxActiveBlocks) {
-        createBlock(blockLaneConfigs[Math.floor(Math.random() * blockLaneConfigs.length)]);
+        createBlock(pickSpawnLane(time));
         const rampAmount = THREE.MathUtils.clamp((time - gameStartAt) / blockSpawnRampDurationMs, 0, 1);
         const spawnInterval = THREE.MathUtils.lerp(blockSpawnStartIntervalMs, blockSpawnMinIntervalMs, rampAmount);
         nextBlockAt = time + spawnInterval * (0.88 + Math.random() * 0.28);
@@ -1565,6 +1829,17 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const animate = (time) => {
       const delta = Math.min(0.05, (time - lastTime) / 1000);
       lastTime = time;
+      camera.position.copy(cameraBasePosition);
+      camera.lookAt(cameraLookTarget);
+
+      if (hitStopRemaining > 0) {
+        hitStopRemaining = Math.max(0, hitStopRemaining - delta);
+        applyCameraShake(time, delta);
+        renderer.render(scene, camera);
+        animationFrame = requestAnimationFrame(animate);
+        return;
+      }
+
       const currentPacket = packetRef.current;
       const hasOrientation = setQuaternionFromDevice(rawQuaternion, currentPacket);
       const packetTimestamp = getPacketTimestamp(currentPacket);
@@ -1688,6 +1963,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
 
       updateTrailSegments(delta);
       updateFloorImpacts(delta);
+      updateHitSparks(delta);
       const floorTravelDistance = ((time - gameStartAt) / 1000) * floorScrollSpeed;
       scrollingFloorLines.position.z = floorTravelDistance % floorLaneSpacing;
       updateBlocks(time, delta, canCut, slashSpeed, slashIntensity);
@@ -1699,6 +1975,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       const floorPoolPulse = 1 + Math.sin(time / 520) * 0.055;
       swordFloorPoolOuter.scale.setScalar(floorPoolPulse);
       swordFloorPoolInner.scale.setScalar(1 + Math.sin(time / 430 + 0.8) * 0.04);
+      applyCameraShake(time, delta);
       renderer.render(scene, camera);
       animationFrame = requestAnimationFrame(animate);
     };
@@ -1718,6 +1995,12 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       while (floorImpacts.length > 0) {
         disposeFloorImpact(floorImpacts.pop());
       }
+      while (hitSparks.length > 0) {
+        disposeHitSpark(hitSparks.pop());
+      }
+      window.removeEventListener('pointerdown', ensureAudioContext);
+      window.removeEventListener('keydown', ensureAudioContext);
+      audioContext?.close().catch(() => {});
       geometries.forEach(geometry => geometry.dispose());
       materials.forEach(material => material.dispose());
       renderer.dispose();
@@ -1892,9 +2175,19 @@ export const PhoneSensorClient = () => {
       setSentCount(count => count + increment);
     };
 
-    const updateSocketStats = (message) => {
+    const handleSocketMessage = (message) => {
       try {
         const payload = JSON.parse(message.data);
+
+        if (payload.type === 'feedback' && payload.feedback === 'hit') {
+          const intensity = THREE.MathUtils.clamp(Number(payload.intensity) || 0, 0, 1);
+          navigator.vibrate?.([
+            Math.round(18 + intensity * 24),
+            18,
+            Math.round(10 + intensity * 12),
+          ]);
+          return;
+        }
 
         if (!Number.isFinite(payload.listeners)) {
           return;
@@ -1973,7 +2266,7 @@ export const PhoneSensorClient = () => {
           setStatusDetail('');
         }
       });
-      socket.addEventListener('message', updateSocketStats);
+      socket.addEventListener('message', handleSocketMessage);
       socket.addEventListener('error', () => {
         socketReady = false;
         useHttpFallback = true;
@@ -2273,12 +2566,25 @@ const MotionLab = () => {
     setIsPairPanelDismissed(false);
   };
 
-  const handleBlockScored = useCallback((result) => {
+  const handleBlockScored = useCallback((result, detail = {}) => {
     setBlockScore(score => ({
       hits: score.hits + (result === 'hit' ? 1 : 0),
       misses: score.misses + (result === 'miss' ? 1 : 0),
     }));
-  }, []);
+
+    if (result === 'hit' && isRelayAvailable) {
+      fetch(createApiUrl(relayOrigin, feedbackEndpoint), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          feedback: 'hit',
+          intensity: detail.intensity || 0,
+          color: detail.color,
+        }),
+      }).catch(() => {});
+    }
+  }, [isRelayAvailable, relayOrigin, sessionId]);
 
   if (isPhoneViewport) {
     return (
