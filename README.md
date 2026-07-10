@@ -1,6 +1,6 @@
 # hhaider3.github.io (`main` branch)
 
-This branch is the **GitHub Pages deployment** of Hasan Haider’s portfolio.
+This branch is the **GitHub Pages deployment** of my portfolio.
 
 It contains **built static assets only** (`index.html`, JS/CSS bundles, images, resume PDF). It is generated automatically from the development branch and should not be edited by hand.
 
