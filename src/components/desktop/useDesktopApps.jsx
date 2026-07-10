@@ -76,7 +76,7 @@ const useDesktopApps = () => {
     },
     {
       id: 'globe',
-      title: '3D Globe',
+      title: 'Time Globe',
       component: globeViewerComponent,
       icon: <Globe size={28} />,
       accent: 'accent-cyan',

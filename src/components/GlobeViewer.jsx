@@ -31,8 +31,24 @@ const starCount = 2400;
 const earthRadius = 2;
 const boundaryRadius = earthRadius * 1.006;
 const maxBoundarySegmentDegrees = 1.5;
+const cameraFieldOfView = 42;
+const minimumCameraDistance = 7;
+const maximumCameraDistance = 14;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const getFittedCameraDistance = (aspect) => {
+  const verticalHalfFov = (cameraFieldOfView * Math.PI / 180) / 2;
+  const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * Math.max(aspect, 0.01));
+  const limitingHalfFov = Math.min(verticalHalfFov, horizontalHalfFov);
+  const paddedRadius = earthRadius * 1.08;
+
+  return clamp(
+    paddedRadius / Math.sin(limitingHalfFov),
+    minimumCameraDistance,
+    maximumCameraDistance
+  );
+};
 
 // Used for boundary line vertices in the boundaryGroup's local space.
 // Three.js SphereGeometry UV maps lon=L to local (cos(lon), 0, -sin(lon)).
@@ -596,16 +612,12 @@ const atmosphereFragmentShader = `
 const GlobeViewer = () => {
   const mountRef = useRef(null);
   const clearSelectedZoneRef = useRef(() => { });
+  const controlActionsRef = useRef({
+    resetView: () => { },
+    toggleAutoRotate: () => { },
+  });
   const [selectedZone, setSelectedZone] = useState(null);
-  const [showOpenHint, setShowOpenHint] = useState(true);
-
-  useEffect(() => {
-    const hintTimerId = window.setTimeout(() => {
-      setShowOpenHint(false);
-    }, 2000);
-
-    return () => window.clearTimeout(hintTimerId);
-  }, []);
+  const [isAutoRotating, setIsAutoRotating] = useState(true);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -617,7 +629,7 @@ const GlobeViewer = () => {
     const scene = new Scene();
     scene.background = new Color('#020617');
 
-    const camera = new PerspectiveCamera(42, 1, 0.1, 200);
+    const camera = new PerspectiveCamera(cameraFieldOfView, 1, 0.1, 200);
     const renderer = new WebGLRenderer({ antialias: true, alpha: false });
     renderer.setClearColor('#020617', 1);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -751,23 +763,39 @@ const GlobeViewer = () => {
 
     const sunYaw = Math.atan2(sunDirection.x, sunDirection.z);
     const sunPitch = Math.asin(clamp(sunDirection.y, -0.86, 0.86));
+    const initialDistance = getFittedCameraDistance(camera.aspect);
     const control = {
       autoRotate: true,
       dragging: false,
+      hasUserZoomed: false,
       pointerMoved: false,
       lastX: 0,
       lastY: 0,
       yaw: sunYaw,
       pitch: sunPitch,
-      distance: 7,
+      distance: initialDistance,
       targetYaw: sunYaw,
       targetPitch: sunPitch,
-      targetDistance: 7
+      targetDistance: initialDistance
     };
 
-    const stopAutoRotate = () => {
-      control.autoRotate = false;
-      renderer.domElement.dataset.autoRotate = 'false';
+    const setAutoRotate = (nextAutoRotate) => {
+      control.autoRotate = nextAutoRotate;
+      renderer.domElement.dataset.autoRotate = String(nextAutoRotate);
+      setIsAutoRotating(nextAutoRotate);
+    };
+
+    const stopAutoRotate = () => setAutoRotate(false);
+
+    controlActionsRef.current = {
+      resetView: () => {
+        control.hasUserZoomed = false;
+        control.targetYaw = sunYaw;
+        control.targetPitch = sunPitch;
+        control.targetDistance = getFittedCameraDistance(camera.aspect);
+        setAutoRotate(true);
+      },
+      toggleAutoRotate: () => setAutoRotate(!control.autoRotate),
     };
 
     const updateCamera = () => {
@@ -790,6 +818,11 @@ const GlobeViewer = () => {
 
       camera.aspect = nextWidth / nextHeight;
       camera.updateProjectionMatrix();
+      if (!control.hasUserZoomed) {
+        const fittedDistance = getFittedCameraDistance(camera.aspect);
+        control.distance = fittedDistance;
+        control.targetDistance = fittedDistance;
+      }
       renderer.setSize(nextWidth, nextHeight);
       updateCamera();
       renderer.render(scene, camera);
@@ -914,7 +947,12 @@ const GlobeViewer = () => {
 
         if (control.lastPinchDist) {
           const delta = control.lastPinchDist - dist;
-          control.targetDistance = clamp(control.targetDistance + delta * 0.02, 4.2, 12);
+          control.hasUserZoomed = true;
+          control.targetDistance = clamp(
+            control.targetDistance + delta * 0.02,
+            4.2,
+            maximumCameraDistance
+          );
         }
         control.lastPinchDist = dist;
       }
@@ -949,7 +987,12 @@ const GlobeViewer = () => {
     const handleWheel = (event) => {
       event.preventDefault();
       stopAutoRotate();
-      control.targetDistance = clamp(control.targetDistance + event.deltaY * 0.005, 4.2, 12);
+      control.hasUserZoomed = true;
+      control.targetDistance = clamp(
+        control.targetDistance + event.deltaY * 0.005,
+        4.2,
+        maximumCameraDistance
+      );
     };
 
     renderer.domElement.addEventListener('pointerdown', handlePointerDown);
@@ -997,6 +1040,10 @@ const GlobeViewer = () => {
       renderer.domElement.removeEventListener('pointercancel', handlePointerUp);
       renderer.domElement.removeEventListener('wheel', handleWheel);
       clearSelectedZoneRef.current = () => { };
+      controlActionsRef.current = {
+        resetView: () => { },
+        toggleAutoRotate: () => { },
+      };
       earthGeometry.dispose();
       earthMaterial.dispose();
       atmosphereGeometry.dispose();
@@ -1027,43 +1074,39 @@ const GlobeViewer = () => {
       minHeight: '400px',
       background: '#020617',
       overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
+      <div className="globe-toolbar" role="group" aria-label="Time Globe controls and legend">
+        <div className="globe-toolbar-main">
+          <div className="globe-guide" aria-label="How to use the Time Globe">
+            <span>Tap to inspect</span>
+            <span>Drag to rotate</span>
+            <span>Scroll or pinch to zoom</span>
+          </div>
+          <div className="globe-toolbar-actions">
+            <button
+              type="button"
+              onClick={() => controlActionsRef.current.toggleAutoRotate()}
+              aria-pressed={isAutoRotating}
+            >
+              {isAutoRotating ? 'Pause spin' : 'Resume spin'}
+            </button>
+            <button type="button" onClick={() => controlActionsRef.current.resetView()}>
+              Reset view
+            </button>
+          </div>
+        </div>
+        <div className="globe-legend" aria-label="Boundary colors">
+          <span><i className="globe-legend-swatch timezone" aria-hidden="true" />Time zones</span>
+          <span><i className="globe-legend-swatch date" aria-hidden="true" />Date change</span>
+          <span><i className="globe-legend-swatch selected" aria-hidden="true" />Selected</span>
+        </div>
+      </div>
       <div
         ref={mountRef}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', flex: '1 1 auto', minHeight: 0 }}
       />
-      {showOpenHint && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: 'absolute',
-            top: '22px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 30,
-            width: 'min(420px, calc(100% - 28px))',
-            padding: '10px 14px',
-            border: '1px solid rgba(168,237,255,0.42)',
-            borderRadius: '8px',
-            background: 'rgba(6,18,34,0.84)',
-            color: '#f8fafc',
-            boxShadow: '0 14px 34px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)',
-            fontSize: '13px',
-            fontWeight: 700,
-            lineHeight: 1.35,
-            textAlign: 'center',
-            pointerEvents: 'none',
-            userSelect: 'none',
-            animation: 'tzHintFadeIn 0.18s ease',
-          }}
-        >
-          <style>{`
-            @keyframes tzHintFadeIn{from{opacity:0;transform:translateX(-50%) translateY(-6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-          `}</style>
-          Click anywhere on globe to see the time at that location
-        </div>
-      )}
       {selectedZone && (
         <TimezoneCard
           key={selectedZone}
