@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {
   Activity,
   AlertTriangle,
@@ -411,8 +416,41 @@ const createTaperedBladeGeometry = ({
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices.flat(), 3));
   geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  return geometry;
+  const facetedGeometry = geometry.toNonIndexed();
+  geometry.dispose();
+  facetedGeometry.computeVertexNormals();
+  return facetedGeometry;
+};
+
+const createGripWrapGeometry = ({
+  startZ,
+  endZ,
+  centerY,
+  startRadius,
+  endRadius,
+  turns = 4.25,
+}) => {
+  const points = [];
+  const pointCount = 96;
+
+  for (let index = 0; index <= pointCount; index += 1) {
+    const amount = index / pointCount;
+    const angle = amount * Math.PI * 2 * turns;
+    const radius = THREE.MathUtils.lerp(startRadius, endRadius, amount);
+    points.push(new THREE.Vector3(
+      Math.cos(angle) * radius,
+      centerY + Math.sin(angle) * radius,
+      THREE.MathUtils.lerp(startZ, endZ, amount)
+    ));
+  }
+
+  return new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3(points),
+    pointCount,
+    0.008,
+    5,
+    false
+  );
 };
 
 /* ── Analytic cube slicer ────────────────────────────────────────────────── */
@@ -646,12 +684,32 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const cameraLookTarget = new THREE.Vector3(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const renderPixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    renderer.setPixelRatio(renderPixelRatio);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.92;
     renderer.setClearColor(0x050912, 1);
     mount.appendChild(renderer.domElement);
 
-    const ambient = new THREE.AmbientLight(0xd9ecff, 1.75);
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const environmentMap = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmremGenerator.dispose();
+    scene.environment = environmentMap;
+    scene.environmentIntensity = 0.72;
+
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(1, 1),
+      0.48,
+      0.36,
+      0.9
+    );
+    composer.addPass(renderPass);
+    composer.addPass(bloomPass);
+
+    const ambient = new THREE.AmbientLight(0xd9ecff, 1.18);
     const keyLight = new THREE.PointLight(0x18d7ff, 48, 10);
     keyLight.position.set(2.3, 2.7, 2.8);
     const roseLight = new THREE.PointLight(0xff5ea8, 22, 8);
@@ -684,60 +742,65 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const hiltCenterZ = -0.08;
 
     const bladeMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
-      color: 0xbffcff,
-      metalness: 0.18,
-      roughness: 0.16,
-      emissive: 0x20e7ff,
-      emissiveIntensity: 1.35,
-      clearcoat: 1,
-      clearcoatRoughness: 0.12,
-    }));
-    const bladeGlowMaterial = trackMaterial(new THREE.MeshBasicMaterial({
-      color: 0x18d7ff,
-      transparent: true,
-      opacity: 0.22,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
+      color: 0x5ba9bc,
+      metalness: 0.36,
+      roughness: 0.34,
+      emissive: 0x0d8da5,
+      emissiveIntensity: 0.46,
+      clearcoat: 0.28,
+      clearcoatRoughness: 0.38,
+      envMapIntensity: 0.5,
+      flatShading: true,
     }));
     const hiltMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
       color: 0x091220,
-      metalness: 0.64,
-      roughness: 0.24,
+      metalness: 0.72,
+      roughness: 0.28,
       emissive: 0x072a47,
-      emissiveIntensity: 0.48,
-      clearcoat: 0.72,
-      clearcoatRoughness: 0.2,
+      emissiveIntensity: 0.28,
+      clearcoat: 0.58,
+      clearcoatRoughness: 0.24,
     }));
     const guardMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
       color: 0xffd166,
-      metalness: 0.56,
-      roughness: 0.2,
+      metalness: 0.72,
+      roughness: 0.24,
       emissive: 0x3b2500,
-      emissiveIntensity: 0.22,
-      clearcoat: 0.82,
-      clearcoatRoughness: 0.18,
+      emissiveIntensity: 0.16,
+      clearcoat: 0.64,
+      clearcoatRoughness: 0.2,
     }));
     const accentMaterial = trackMaterial(new THREE.MeshBasicMaterial({
       color: 0x19b8ff,
       transparent: true,
-      opacity: 0.78,
-      blending: THREE.AdditiveBlending,
-    }));
-    const hiltGlowMaterial = trackMaterial(new THREE.MeshBasicMaterial({
-      color: 0x19b8ff,
-      transparent: true,
-      opacity: 0.16,
+      opacity: 0.82,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }));
+    const gripWrapMaterial = trackMaterial(new THREE.MeshStandardMaterial({
+      color: 0x168cb3,
+      metalness: 0.68,
+      roughness: 0.3,
+      emissive: 0x0a91c7,
+      emissiveIntensity: 0.56,
+    }));
     const phoneMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
       color: 0x07111d,
-      metalness: 0.34,
-      roughness: 0.3,
+      metalness: 0.46,
+      roughness: 0.34,
       emissive: 0x0d9bd7,
-      emissiveIntensity: 0.22,
-      clearcoat: 0.9,
-      clearcoatRoughness: 0.16,
+      emissiveIntensity: 0.12,
+      clearcoat: 0.72,
+      clearcoatRoughness: 0.2,
+    }));
+    const phoneScreenMaterial = trackMaterial(new THREE.MeshPhysicalMaterial({
+      color: 0x020911,
+      metalness: 0.08,
+      roughness: 0.16,
+      emissive: 0x13cfff,
+      emissiveIntensity: 0.94,
+      clearcoat: 1,
+      clearcoatRoughness: 0.08,
     }));
     const edgeMaterial = trackMaterial(new THREE.LineBasicMaterial({
       color: 0x7ce8ff,
@@ -755,18 +818,6 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     }));
     const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
 
-    const bladeGlow = new THREE.Mesh(
-      trackGeometry(createTaperedBladeGeometry({
-        baseZ: bladeBaseZ - 0.03,
-        tipZ: bladeTipZ + 0.02,
-        baseWidth: 0.27,
-        tipWidth: 0.095,
-        baseThickness: 0.075,
-        tipThickness: 0.034,
-      })),
-      bladeGlowMaterial
-    );
-
     const bladeEdges = new THREE.LineSegments(
       trackGeometry(new THREE.EdgesGeometry(bladeGeometry)),
       edgeMaterial
@@ -779,29 +830,54 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     grip.rotation.x = Math.PI / 2;
     grip.position.set(0, 0.04, hiltCenterZ);
 
-    const phoneMountGeometry = trackGeometry(new THREE.BoxGeometry(0.3, 0.05, 0.9, 2, 1, 4));
+    const gripWrap = new THREE.Mesh(
+      trackGeometry(createGripWrapGeometry({
+        startZ: -0.46,
+        endZ: 0.3,
+        centerY: 0.04,
+        startRadius: 0.078,
+        endRadius: 0.068,
+      })),
+      gripWrapMaterial
+    );
+    const gripCollarGeometry = trackGeometry(new THREE.TorusGeometry(0.079, 0.012, 8, 32));
+    const gripCollars = [-0.49, 0.34].map((zPosition) => {
+      const collar = new THREE.Mesh(gripCollarGeometry, guardMaterial);
+      collar.position.set(0, 0.04, zPosition);
+      return collar;
+    });
+
+    const phoneMountGeometry = trackGeometry(new RoundedBoxGeometry(0.3, 0.05, 0.86, 4, 0.025));
     const phoneMount = new THREE.Mesh(phoneMountGeometry, phoneMaterial);
     phoneMount.position.set(0, -0.105, hiltCenterZ);
-    const phoneMountEdges = new THREE.LineSegments(
-      trackGeometry(new THREE.EdgesGeometry(phoneMountGeometry)),
-      edgeMaterial
+    const phoneScreen = new THREE.Mesh(
+      trackGeometry(new RoundedBoxGeometry(0.25, 0.012, 0.66, 4, 0.018)),
+      phoneScreenMaterial
     );
-    phoneMountEdges.position.copy(phoneMount.position);
+    phoneScreen.position.set(0, -0.136, hiltCenterZ - 0.015);
+    const phoneCamera = new THREE.Mesh(
+      trackGeometry(new THREE.CylinderGeometry(0.018, 0.018, 0.009, 16)),
+      accentMaterial
+    );
+    phoneCamera.position.set(-0.085, -0.146, hiltCenterZ + 0.29);
 
-    const guard = new THREE.Mesh(
-      trackGeometry(new THREE.BoxGeometry(0.9, 0.1, 0.12, 2, 1, 1)),
+    const guardCenterZ = bladeBaseZ - 0.08;
+    const guardCore = new THREE.Mesh(
+      trackGeometry(new RoundedBoxGeometry(0.3, 0.12, 0.18, 4, 0.028)),
       guardMaterial
     );
-    guard.position.z = bladeBaseZ - 0.08;
-
-    const guardGlow = new THREE.Mesh(
-      trackGeometry(new THREE.BoxGeometry(1.06, 0.16, 0.18, 2, 1, 1)),
-      hiltGlowMaterial
-    );
-    guardGlow.position.copy(guard.position);
+    guardCore.position.z = guardCenterZ;
+    const quillonGeometry = trackGeometry(new THREE.CapsuleGeometry(0.055, 0.28, 5, 12));
+    const quillions = [-1, 1].map((side) => {
+      const quillon = new THREE.Mesh(quillonGeometry, guardMaterial);
+      const direction = new THREE.Vector3(side, 0, -0.28).normalize();
+      quillon.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+      quillon.position.set(side * 0.3, 0, guardCenterZ - 0.045);
+      return quillon;
+    });
 
     const pommel = new THREE.Mesh(
-      trackGeometry(new THREE.SphereGeometry(0.115, 24, 12)),
+      trackGeometry(new THREE.DodecahedronGeometry(0.115, 0)),
       guardMaterial
     );
     pommel.position.z = -0.62;
@@ -812,31 +888,24 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     );
     pivotGlow.position.z = hiltCenterZ;
 
-    [-0.36, 0.16].forEach((zPosition) => {
-      const wrap = new THREE.Mesh(
-        trackGeometry(new THREE.TorusGeometry(0.095, 0.01, 8, 36)),
-        accentMaterial
-      );
-      wrap.position.z = zPosition;
-      sword.add(wrap);
-    });
-
-    const guardCapGeometry = trackGeometry(new THREE.SphereGeometry(0.06, 18, 10));
-    [-0.49, 0.49].forEach((xPosition) => {
+    const guardCapGeometry = trackGeometry(new THREE.OctahedronGeometry(0.065, 1));
+    [-1, 1].forEach((side) => {
       const cap = new THREE.Mesh(guardCapGeometry, accentMaterial);
-      cap.position.set(xPosition, 0, bladeBaseZ - 0.08);
+      cap.position.set(side * 0.49, 0, guardCenterZ - 0.1);
       sword.add(cap);
     });
 
     sword.add(
-      bladeGlow,
       blade,
       bladeEdges,
-      guardGlow,
-      guard,
+      guardCore,
+      ...quillions,
       grip,
+      gripWrap,
+      ...gripCollars,
       phoneMount,
-      phoneMountEdges,
+      phoneScreen,
+      phoneCamera,
       pommel,
       pivotGlow
     );
@@ -1347,14 +1416,15 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       const group = new THREE.Group();
       const bodyMaterial = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
         color: color.clone().multiplyScalar(0.62),
-        metalness: 0.18,
-        roughness: 0.34,
+        metalness: 0.08,
+        roughness: 0.48,
         emissive: color,
-        emissiveIntensity: 0.24,
+        emissiveIntensity: 0.2,
         transparent: true,
         opacity: 0.96,
-        clearcoat: 0.72,
-        clearcoatRoughness: 0.22,
+        clearcoat: 0.18,
+        clearcoatRoughness: 0.46,
+        envMapIntensity: 0.38,
         fog: true,
       }));
       const edgeLineMaterial = tagMaterialOpacity(new LineMaterial({
@@ -1524,14 +1594,15 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       // Keep sliced pieces colored so hits read as split cubes, not dark debris.
       const shellMaterialA = tagMaterialOpacity(new THREE.MeshPhysicalMaterial({
         color: shellColor,
-        metalness: 0.38,
-        roughness: 0.24,
+        metalness: 0.16,
+        roughness: 0.42,
         emissive: color.clone(),
-        emissiveIntensity: 0.48,
+        emissiveIntensity: 0.32,
         transparent: true,
         opacity: 0.94,
-        clearcoat: 0.9,
-        clearcoatRoughness: 0.14,
+        clearcoat: 0.2,
+        clearcoatRoughness: 0.44,
+        envMapIntensity: 0.36,
         fog: false,
         side: THREE.DoubleSide,
       }));
@@ -1807,6 +1878,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
     const targetPosition = new THREE.Vector3();
     const currentPosition = new THREE.Vector3();
     const rawAcceleration = new THREE.Vector3();
+    const worldAcceleration = new THREE.Vector3();
     let hasBaseline = false;
     let lastCalibrationSignal = calibrationSignalRef.current;
     let lastPacketTimestamp = 0;
@@ -1820,6 +1892,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
+      composer.setSize(width, height);
     };
 
     const resizeObserver = new ResizeObserver(resize);
@@ -1835,7 +1908,7 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       if (hitStopRemaining > 0) {
         hitStopRemaining = Math.max(0, hitStopRemaining - delta);
         applyCameraShake(time, delta);
-        renderer.render(scene, camera);
+        composer.render(delta);
         animationFrame = requestAnimationFrame(animate);
         return;
       }
@@ -1914,12 +1987,16 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
         deadbandValue(acceleration.y, swordAccelerationDeadband),
         deadbandValue(acceleration.z, swordAccelerationDeadband)
       );
+      worldAcceleration.copy(rawAcceleration);
+      if (hasOrientation) {
+        worldAcceleration.applyQuaternion(rig.quaternion);
+      }
       targetPosition.set(
-        THREE.MathUtils.clamp(rawAcceleration.x * 0.045, -0.65, 0.65),
-        THREE.MathUtils.clamp(rawAcceleration.y * 0.045, -0.42, 0.42),
-        THREE.MathUtils.clamp(rawAcceleration.z * 0.035, -0.48, 0.48)
+        THREE.MathUtils.clamp(worldAcceleration.x * 0.045, -0.65, 0.65),
+        THREE.MathUtils.clamp(worldAcceleration.y * 0.045, -0.42, 0.42),
+        THREE.MathUtils.clamp(worldAcceleration.z * 0.035, -0.48, 0.48)
       );
-      const accelerationAmount = THREE.MathUtils.clamp(rawAcceleration.length() / 8, 0, 1);
+      const accelerationAmount = THREE.MathUtils.clamp(worldAcceleration.length() / 8, 0, 1);
       const positionResponse = THREE.MathUtils.lerp(
         swordRestPositionResponse,
         swordFastPositionResponse,
@@ -1968,15 +2045,14 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       scrollingFloorLines.position.z = floorTravelDistance % floorLaneSpacing;
       updateBlocks(time, delta, canCut, slashSpeed, slashIntensity);
 
-      const glowPulse = 1 + Math.sin(time / 180) * 0.018;
-      bladeGlow.scale.set(glowPulse, glowPulse, 1);
-      guardGlow.scale.set(1, 1 + Math.sin(time / 220) * 0.025, 1);
+      bladeMaterial.emissiveIntensity = 0.46 + Math.sin(time / 180) * 0.025;
+      phoneScreenMaterial.emissiveIntensity = 0.94 + Math.sin(time / 260 + 0.6) * 0.07;
       pivotGlow.scale.setScalar(1 + Math.sin(time / 150) * 0.18);
       const floorPoolPulse = 1 + Math.sin(time / 520) * 0.055;
       swordFloorPoolOuter.scale.setScalar(floorPoolPulse);
       swordFloorPoolInner.scale.setScalar(1 + Math.sin(time / 430 + 0.8) * 0.04);
       applyCameraShake(time, delta);
-      renderer.render(scene, camera);
+      composer.render(delta);
       animationFrame = requestAnimationFrame(animate);
     };
 
@@ -2003,6 +2079,9 @@ const PhoneSwordScene = ({ packet, calibrateKey, onBlockScored }) => {
       audioContext?.close().catch(() => {});
       geometries.forEach(geometry => geometry.dispose());
       materials.forEach(material => material.dispose());
+      environmentMap.dispose();
+      bloomPass.dispose();
+      composer.dispose();
       renderer.dispose();
     };
   }, []);
