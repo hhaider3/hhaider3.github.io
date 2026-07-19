@@ -7,6 +7,7 @@ import {
   Globe,
   Mail,
   RadioTower,
+  Satellite,
   User,
   Wrench,
 } from 'lucide-react';
@@ -104,6 +105,13 @@ const useDesktopApps = () => {
       href: linkedInUrl,
       icon: <FaLinkedin size={28} />,
       accent: 'accent-linkedin',
+    },
+    {
+      id: 'earth-orbit-live',
+      title: 'Earth Orbit Live',
+      href: 'https://live-sat-location.hasanhaider009.workers.dev/',
+      icon: <Satellite size={28} />,
+      accent: 'accent-orbit',
     },
   ], []);
 

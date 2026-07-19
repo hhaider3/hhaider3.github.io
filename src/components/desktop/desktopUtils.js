@@ -33,6 +33,7 @@ export const desktopIconOrder = [
   'linkedin',
   'globe',
   'motion',
+  'earth-orbit-live',
 ];
 
 export const getInitialThemeColors = () => {
