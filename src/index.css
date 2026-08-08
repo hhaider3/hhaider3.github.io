@@ -1073,6 +1073,18 @@ ul {
     background: linear-gradient(135deg, #0f172a, #ef4444);
 }
 
+.bg-gradient-orbit {
+    background: linear-gradient(135deg, #111827, #2563eb);
+}
+
+.bg-gradient-ble {
+    background: linear-gradient(135deg, #2563eb, #22d3ee);
+}
+
+.bg-gradient-media {
+    background: linear-gradient(135deg, #7c3aed, #ec4899);
+}
+
 .project-banner-icon {
     width: 48px;
     height: 48px;

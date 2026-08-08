@@ -1,8 +1,63 @@
 import { useState } from 'react';
-import { Search, Bot, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, ExternalLink, Play } from 'lucide-react';
+import { Search, Bot, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, Satellite, Bluetooth, Clapperboard, ExternalLink, Play } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 
 const projectsData = [
+  {
+    id: 7,
+    title: 'Earth Orbit Live',
+    date: 'Jul 2026 – Present',
+    category: 'interactive',
+    description: 'Built an interactive 3D globe that tracks live Earth-orbiting satellites from current CelesTrak data and propagates their positions in the browser with SGP4.',
+    details: [
+      'Rendered selectable satellite constellations, orbital paths, sunlight, atmosphere, and a readable night side with Three.js.',
+      'Added pause, reverse, date selection, and logarithmic time controls for exploring orbital motion from real time to accelerated simulation.',
+      'Deployed a Cloudflare Worker proxy with edge caching and clearly labeled simulated fallbacks when live TLE sources are unavailable.',
+    ],
+    tags: ['TypeScript', 'React', 'Three.js', 'satellite.js', 'SGP4', 'Cloudflare Workers'],
+    gradientClass: 'bg-gradient-orbit',
+    icon: <Satellite className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/live-sat-location', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://live-sat-location.hasanhaider009.workers.dev/', label: 'Live Demo', icon: <ExternalLink size={16} /> }
+    ]
+  },
+  {
+    id: 8,
+    title: 'NearbyBluetooth',
+    date: 'Aug 2026',
+    category: 'native',
+    description: 'Created a cross-platform React Native app that discovers nearby Bluetooth Low Energy advertisers and visualizes live signal strength on physical Android and iOS devices.',
+    details: [
+      'Implemented platform-specific Bluetooth permissions and timed BLE discovery with react-native-ble-plx.',
+      'Kept scan results stable in first-seen order while supporting repeat scans and device selection.',
+      'Built active device tracking with a live RSSI meter and numeric dBm readings, plus Android paired-audio-device discovery.',
+    ],
+    tags: ['TypeScript', 'React Native', 'Bluetooth LE', 'react-native-ble-plx', 'Android', 'iOS'],
+    gradientClass: 'bg-gradient-ble',
+    icon: <Bluetooth className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/ble-scanner', label: 'Code', icon: <FaGithub size={16} /> }
+    ]
+  },
+  {
+    id: 9,
+    title: 'macmpv',
+    date: 'Aug 2026',
+    category: 'native',
+    description: 'Developed a native macOS media player in SwiftUI with embedded, hardware-accelerated mpv playback and ffprobe-powered media metadata.',
+    details: [
+      'Added local file and network-stream playback with queues, seeking, speed controls, track selection, subtitles, screenshots, and full-screen support.',
+      'Persisted per-file playback progress and intro/outro markers while providing drag-and-drop queue management and native keyboard commands.',
+      'Wrapped libmpv for rendering and used FFmpeg to inspect duration, resolution, frame rate, codecs, and container formats.',
+    ],
+    tags: ['Swift', 'SwiftUI', 'macOS', 'libmpv', 'FFmpeg', 'Swift Package Manager'],
+    gradientClass: 'bg-gradient-media',
+    icon: <Clapperboard className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/macmpv', label: 'Code', icon: <FaGithub size={16} /> }
+    ]
+  },
   {
     id: 1,
     title: 'Ollama-Based Multimedia Edubot',
@@ -175,6 +230,7 @@ const Projects = () => {
             <button className={`filter-btn ${activeFilter === 'all' ? 'active' : ''}`} onClick={() => setActiveFilter('all')}>All</button>
             <button className={`filter-btn ${activeFilter === 'ai' ? 'active' : ''}`} onClick={() => setActiveFilter('ai')}>AI & LLMs</button>
             <button className={`filter-btn ${activeFilter === 'interactive' ? 'active' : ''}`} onClick={() => setActiveFilter('interactive')}>Interactive 3D</button>
+            <button className={`filter-btn ${activeFilter === 'native' ? 'active' : ''}`} onClick={() => setActiveFilter('native')}>Native Apps</button>
             <button className={`filter-btn ${activeFilter === 'web' ? 'active' : ''}`} onClick={() => setActiveFilter('web')}>Web Development</button>
             <button className={`filter-btn ${activeFilter === 'game' ? 'active' : ''}`} onClick={() => setActiveFilter('game')}>Game Dev</button>
             <button className={`filter-btn ${activeFilter === 'iot' ? 'active' : ''}`} onClick={() => setActiveFilter('iot')}>IoT & Hardware</button>
