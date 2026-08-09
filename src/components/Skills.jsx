@@ -40,6 +40,8 @@ const Skills = () => {
               <span className="skill-pill">SwiftUI</span>
               <span className="skill-pill">Three.js</span>
               <span className="skill-pill">WebGL</span>
+              <span className="skill-pill">WebAssembly</span>
+              <span className="skill-pill">Web Workers</span>
               <span className="skill-pill">Tailwind CSS</span>
               <span className="skill-pill">Flowbite</span>
               <span className="skill-pill">Responsive Design</span>
@@ -100,6 +102,7 @@ const Skills = () => {
               <span className="skill-pill">Bluetooth Low Energy</span>
               <span className="skill-pill">SGP4 / TLE Propagation</span>
               <span className="skill-pill">Geospatial Visualization</span>
+              <span className="skill-pill">UCI Chess Protocol</span>
               <span className="skill-pill">Cybersecurity Concepts</span>
             </div>
           </div>

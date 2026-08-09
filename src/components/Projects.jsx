@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Bot, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, Satellite, Bluetooth, Clapperboard, ExternalLink, Play } from 'lucide-react';
+import { Search, Bot, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, Satellite, Bluetooth, Clapperboard, Crown, ExternalLink, Play } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 
 const projectsData = [
@@ -38,6 +38,25 @@ const projectsData = [
     icon: <Bluetooth className="project-banner-icon" />,
     links: [
       { url: 'https://github.com/hhaider3/ble-scanner', label: 'Code', icon: <FaGithub size={16} /> }
+    ]
+  },
+  {
+    id: 10,
+    title: 'Stockfish Online',
+    date: 'Jul 2026 – Present',
+    category: 'game',
+    description: 'Built a browser-based chess app for playing against Stockfish 18 with private on-device analysis, live evaluation, and configurable engine strength.',
+    details: [
+      'Implemented click and drag-and-drop play as either color with five difficulty levels, undo, new-game, and analysis controls.',
+      'Ran Stockfish entirely in the browser through WebAssembly and a Web Worker, communicating with the engine through the UCI protocol.',
+      'Displayed a live evaluation bar, best move, and principal variation while keeping positions and analysis on the user\'s device.',
+    ],
+    tags: ['TypeScript', 'React', 'Stockfish 18', 'WebAssembly', 'Web Workers', 'chess.js'],
+    gradientClass: 'bg-gradient-chess',
+    icon: <Crown className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/stockfishonline', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://site-creator-vinext-starter.hasanhaider009.workers.dev/', label: 'Play Online', icon: <Play size={16} /> }
     ]
   },
   {

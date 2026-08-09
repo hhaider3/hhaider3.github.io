@@ -1085,6 +1085,10 @@ ul {
     background: linear-gradient(135deg, #7c3aed, #ec4899);
 }
 
+.bg-gradient-chess {
+    background: linear-gradient(135deg, #713f12, #d97706);
+}
+
 .project-banner-icon {
     width: 48px;
     height: 48px;
