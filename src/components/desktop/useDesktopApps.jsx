@@ -6,6 +6,7 @@ import {
   Folder,
   Globe,
   Mail,
+  MonitorPlay,
   RadioTower,
   Satellite,
   User,
@@ -112,6 +113,13 @@ const useDesktopApps = () => {
       href: 'https://live-sat-location.hasanhaider009.workers.dev/',
       icon: <Satellite size={28} />,
       accent: 'accent-orbit',
+    },
+    {
+      id: 'macmpv',
+      title: 'macmpv',
+      href: 'https://macmpv.pages.dev/',
+      icon: <MonitorPlay size={28} />,
+      accent: 'accent-macmpv',
     },
   ], []);
 
