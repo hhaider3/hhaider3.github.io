@@ -34,6 +34,8 @@ export const desktopIconOrder = [
   'globe',
   'motion',
   'earth-orbit-live',
+  'macmpv',
+  'stockfish-board',
 ];
 
 export const getInitialThemeColors = () => {

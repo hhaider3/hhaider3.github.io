@@ -2568,6 +2568,10 @@ footer {
     background-color: #000000;
 }
 
+.accent-chess {
+    background-color: #1d3b2c;
+}
+
 .desktop-widgets {
     justify-self: end;
     width: min(100%, 430px);

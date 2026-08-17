@@ -12,7 +12,7 @@ import {
   User,
   Wrench,
 } from 'lucide-react';
-import { FaGithub, FaLinkedin } from 'react-icons/fa';
+import { FaChessKnight, FaGithub, FaLinkedin } from 'react-icons/fa';
 import About from '../About';
 import Experience from '../Experience';
 import Projects from '../Projects';
@@ -120,6 +120,13 @@ const useDesktopApps = () => {
       href: 'https://macmpv.pages.dev/',
       icon: <MonitorPlay size={28} />,
       accent: 'accent-macmpv',
+    },
+    {
+      id: 'stockfish-board',
+      title: 'Stockfish Board',
+      href: 'https://site-creator-vinext-starter.hasanhaider009.workers.dev/',
+      icon: <FaChessKnight size={28} />,
+      accent: 'accent-chess',
     },
   ], []);
 
