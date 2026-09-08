@@ -1,8 +1,44 @@
 import { useState } from 'react';
-import { Search, Bot, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, Satellite, Bluetooth, Clapperboard, Crown, ExternalLink, Play } from 'lucide-react';
+import { Search, Bot, Car, Terminal, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, Satellite, Bluetooth, Clapperboard, Crown, ExternalLink, Play } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 
 const projectsData = [
+  {
+    id: 11,
+    title: 'Endless Drive (Project Magellan)',
+    category: 'game',
+    description: 'Built an endless browser driving playground with procedurally generated terrain, roads, forests, landmarks, and stunt ramps. Shareable seeds recreate the same landscape.',
+    details: [
+      'Streamed terrain chunks through a module worker and used instanced scenery to render an expansive Three.js world.',
+      'Implemented fixed-step vehicle physics with drifting, jumping, collisions, destructible props, and barrel-roll ramps.',
+      'Added keyboard and touch controls, three camera views, a terrain minimap, and locally saved trip records.',
+    ],
+    tags: ['JavaScript', 'Three.js', 'WebGL', 'Web Workers', 'Procedural Generation', 'Cloudflare Pages'],
+    gradientClass: 'bg-gradient-globe',
+    icon: <Car className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/project-magellan', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://project-magellan.pages.dev/', label: 'Play Online', icon: <Play size={16} /> }
+    ]
+  },
+  {
+    id: 12,
+    title: 'TERMINAL // BREACH',
+    category: 'game',
+    description: 'Developed a five-wave arena FPS that runs in a terminal, with its game simulation, renderer, input handling, and terminal lifecycle implemented in Rust.',
+    details: [
+      'Rendered an industrial arena, procedural enemies, shotgun, lighting, and HUD using truecolor or 256-color terminal output.',
+      'Built enemy variants, shotgun combat, dodging, pickups, and score multipliers with a fixed 120 Hz simulation.',
+      'Used Crossterm for keyboard, mouse, focus, and resize events, with incremental cell updates and terminal restoration on exit.',
+    ],
+    tags: ['Rust', 'Crossterm', 'ANSI', 'Terminal Rendering', 'Game Physics', 'Cargo'],
+    gradientClass: 'bg-gradient-game',
+    icon: <Terminal className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/terminalshooter', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://github.com/hhaider3/terminalshooter#play', label: 'How to Play', icon: <Terminal size={16} /> }
+    ]
+  },
   {
     id: 7,
     title: 'Earth Orbit Live',
@@ -265,7 +301,7 @@ const Projects = () => {
               </div>
               <div className="project-content">
                 <div className="project-header">
-                  <span className="project-date">{project.date}</span>
+                  {project.date && <span className="project-date">{project.date}</span>}
                   <h3 className="project-title">{project.title}</h3>
                 </div>
                 <p className="project-description">{project.description}</p>

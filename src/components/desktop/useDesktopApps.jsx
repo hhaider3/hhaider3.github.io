@@ -2,6 +2,7 @@ import { lazy, useMemo } from 'react';
 import {
   BookOpen,
   Briefcase,
+  Car,
   FileText,
   Folder,
   Globe,
@@ -9,6 +10,7 @@ import {
   MonitorPlay,
   RadioTower,
   Satellite,
+  Terminal,
   User,
   Wrench,
 } from 'lucide-react';
@@ -127,6 +129,20 @@ const useDesktopApps = () => {
       href: 'https://site-creator-vinext-starter.hasanhaider009.workers.dev/',
       icon: <FaChessKnight size={28} />,
       accent: 'accent-chess',
+    },
+    {
+      id: 'endless-drive',
+      title: 'Endless Drive',
+      href: 'https://project-magellan.pages.dev/',
+      icon: <Car size={28} />,
+      accent: 'accent-teal',
+    },
+    {
+      id: 'terminal-breach',
+      title: 'Terminal Breach',
+      href: 'https://github.com/hhaider3/terminalshooter#play',
+      icon: <Terminal size={28} />,
+      accent: 'accent-red',
     },
   ], []);
 
