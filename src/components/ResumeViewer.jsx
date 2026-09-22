@@ -8,11 +8,11 @@ const ResumeViewer = () => {
       <div className="resume-viewer-toolbar">
         <div className="resume-viewer-title">
           <FileText size={18} />
-          <span>Hasan Haider Resume</span>
+          <span>Hasan Haider CV</span>
         </div>
         <a
           href={resumePath}
-          download
+          download="Hasan_Haider_CV.pdf"
           className="resume-download-button"
           aria-label="Download CV"
         >
@@ -24,7 +24,7 @@ const ResumeViewer = () => {
       <div className="resume-frame-shell">
         <iframe
           src={`${resumePath}#toolbar=0&navpanes=0`}
-          title="Hasan Haider Resume PDF"
+          title="Hasan Haider CV PDF"
           className="resume-frame"
         />
       </div>
