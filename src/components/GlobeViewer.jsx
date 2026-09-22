@@ -641,7 +641,7 @@ const GlobeViewer = () => {
     renderer.domElement.dataset.autoRotate = 'true';
     mount.appendChild(renderer.domElement);
 
-    const dayMap = new TextureLoader().load('/earth.jpg');
+    const dayMap = new TextureLoader().load('/earth.webp');
     dayMap.colorSpace = SRGBColorSpace;
     const sunHaloMap = createSunHaloTexture();
     const sunPosition = getSunPosition();

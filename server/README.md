@@ -2,6 +2,12 @@
 
 Tiny dependency-free Node relay for Motion Lab.
 
+The Vite development plugin and standalone server both use `motion-relay.mjs`.
+That module owns sessions, HTTP/SSE endpoints, WebSocket publishing, feedback,
+and idle-session cleanup; each entry point supplies its origin configuration.
+
+Run the HTTP/SSE/WebSocket regression checks with `npm test` (Node 22 or newer).
+
 ## Run Locally
 
 ```bash

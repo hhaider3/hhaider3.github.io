@@ -35,6 +35,7 @@ const DesktopWidgets = ({
           onPointerMove={handleWidgetPointerMove}
           onPointerUp={finishWidgetDrag}
           onPointerCancel={finishWidgetDrag}
+          onLostPointerCapture={finishWidgetDrag}
         >
           {!isMobile && (
             <div className="desktop-widget-grip" aria-hidden="true">
@@ -57,9 +58,6 @@ const DesktopWidgets = ({
               data-edge={edge}
               aria-hidden="true"
               onPointerDown={(event) => handleWidgetResizePointerDown(event, widget.id)}
-              onPointerMove={handleWidgetPointerMove}
-              onPointerUp={finishWidgetDrag}
-              onPointerCancel={finishWidgetDrag}
             />
           ))}
         </section>

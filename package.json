@@ -8,6 +8,7 @@
     "relay": "node server/motion-relay-server.mjs",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --test server/*.test.mjs",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist -b main"

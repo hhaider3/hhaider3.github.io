@@ -34,6 +34,7 @@ const DesktopIcon = ({
       onPointerMove={(event) => onPointerMove?.(event, item)}
       onPointerUp={(event) => onPointerUp?.(event, item)}
       onPointerCancel={(event) => onPointerCancel?.(event, item)}
+      onLostPointerCapture={(event) => onPointerCancel?.(event, item)}
       onClick={handleClick}
       onDoubleClick={() => onOpen(item)}
       onKeyDown={(event) => {

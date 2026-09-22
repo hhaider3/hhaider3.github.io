@@ -5,12 +5,12 @@ import WindowLayer from './desktop/WindowLayer';
 import useDesktopApps from './desktop/useDesktopApps';
 import useDesktopWidgets from './desktop/useDesktopWidgets';
 import useIsMobile from './desktop/useIsMobile';
+import useLayoutPersistence from './desktop/useLayoutPersistence';
 import {
   clampDesktopPoint,
   clampWidgetRect,
   colorStorageKey,
   desktopLayoutStorageKey,
-  desktopLayoutVersion,
   doesRectIntersect,
   getDefaultIconPosition,
   getDefaultWidgetRects,
@@ -25,7 +25,7 @@ import {
   statsExpandedWidgetHeight,
   widgetStackGap,
 } from './desktop/desktopUtils';
-import wallpaper from '../assets/win7-portfolio-wallpaper.png';
+import wallpaper from '../assets/win7-portfolio-wallpaper.webp';
 
 const DesktopShell = ({ theme, toggleTheme }) => {
   const isMobile = useIsMobile();
@@ -120,18 +120,25 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     themeColors,
   });
 
-  useEffect(() => {
-    if (isMobile || Object.keys(iconPositions).length === 0 || Object.keys(widgetRects).length === 0) {
-      return;
-    }
+  useLayoutPersistence({ iconPositions, widgetRects, isStatsExpanded, isMobile });
 
-    window.localStorage.setItem(desktopLayoutStorageKey, JSON.stringify({
-      version: desktopLayoutVersion,
-      icons: iconPositions,
-      widgets: widgetRects,
-      statsExpanded: isStatsExpanded,
-    }));
-  }, [iconPositions, isMobile, isStatsExpanded, widgetRects]);
+  const dragFrameRef = useRef(null);
+  const pendingDragUpdateRef = useRef(null);
+  const flushDragUpdate = () => {
+    cancelAnimationFrame(dragFrameRef.current);
+    dragFrameRef.current = null;
+    const update = pendingDragUpdateRef.current;
+    pendingDragUpdateRef.current = null;
+    update?.();
+  };
+  const queueDragUpdate = (update) => {
+    pendingDragUpdateRef.current = update;
+    if (dragFrameRef.current === null) {
+      dragFrameRef.current = requestAnimationFrame(flushDragUpdate);
+    }
+  };
+
+  useEffect(() => () => cancelAnimationFrame(dragFrameRef.current), []);
 
   const activeSelectionRect = selectionBox ? getSelectionRect(selectionBox) : null;
   const isSelectionVisible = activeSelectionRect
@@ -267,10 +274,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       y: drag.startY + dy,
     }, 96, 96);
 
-    setIconPositions(prev => ({
+    queueDragUpdate(() => setIconPositions(prev => ({
       ...prev,
       [drag.id]: nextPoint,
-    }));
+    })));
   };
 
   const finishIconDrag = (event) => {
@@ -278,6 +285,8 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     if (!drag || drag.type !== 'icon' || drag.pointerId !== event.pointerId) {
       return;
     }
+
+    flushDragUpdate();
 
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -316,49 +325,6 @@ const DesktopShell = ({ theme, toggleTheme }) => {
       startH: rect.h,
     };
     activeDesktopDrag.current = resizeState;
-
-    const onMove = (moveEvent) => {
-      if (moveEvent.pointerId !== resizeState.pointerId) {
-        return;
-      }
-
-      const dx = moveEvent.clientX - resizeState.startMouseX;
-      const dy = moveEvent.clientY - resizeState.startMouseY;
-      let nextRect = {
-        x: resizeState.startX,
-        y: resizeState.startY,
-        w: resizeState.startW,
-        h: resizeState.startH,
-      };
-
-      if (resizeState.edge.includes('e')) {
-        nextRect.w = resizeState.startW + dx;
-      }
-      if (resizeState.edge.includes('s')) {
-        nextRect.h = resizeState.startH + dy;
-      }
-
-      nextRect = clampWidgetRect(nextRect, resizeState.id);
-      setWidgetRects(prev => ({
-        ...prev,
-        [resizeState.id]: nextRect,
-      }));
-    };
-
-    const onUp = (upEvent) => {
-      if (upEvent.pointerId !== resizeState.pointerId) {
-        return;
-      }
-
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-      activeDesktopDrag.current = null;
-    };
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
   };
 
   const handleWidgetPointerDown = (event, widgetId) => {
@@ -441,15 +407,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         y: drag.startY + dy,
       }, drag.startW, drag.startH);
 
-      setWidgetRects(prev => ({
+      queueDragUpdate(() => setWidgetRects(prev => ({
         ...prev,
-        [drag.id]: {
-          ...(prev[drag.id] || {}),
-          ...point,
-          w: drag.startW,
-          h: drag.startH,
-        },
-      }));
+        [drag.id]: { ...point, w: drag.startW, h: drag.startH },
+      })));
       return;
     }
 
@@ -468,10 +429,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     }
 
     nextRect = clampWidgetRect(nextRect, drag.id);
-    setWidgetRects(prev => ({
+    queueDragUpdate(() => setWidgetRects(prev => ({
       ...prev,
       [drag.id]: nextRect,
-    }));
+    })));
   };
 
   const finishWidgetDrag = (event) => {
@@ -479,6 +440,8 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     if (!drag || !drag.type.startsWith('widget') || drag.pointerId !== event.pointerId) {
       return;
     }
+
+    flushDragUpdate();
 
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);

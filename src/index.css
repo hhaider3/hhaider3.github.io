@@ -299,18 +299,6 @@ ul {
 }
 
 /* ==========================================================================
-      BRAND LINKS
-      ========================================================================== */
-.logo {
-    font-size: 22px;
-    font-weight: 800;
-    font-family: var(--font-heading);
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-}
-
-/* ==========================================================================
       ABOUT & EDUCATION
       ========================================================================== */
 .about-bio-centered {
@@ -1464,74 +1452,6 @@ ul {
 }
 
 /* ==========================================================================
-      FOOTER
-      ========================================================================== */
-footer {
-    background-color: var(--bg-primary);
-    border-top: 1px solid var(--border-color);
-    padding: 60px 0 30px;
-    color: var(--text-muted);
-}
-
-.footer-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 32px;
-}
-
-.footer-info {
-    text-align: center;
-}
-
-.footer-info .logo {
-    justify-content: center;
-    margin-bottom: 12px;
-}
-
-.footer-links {
-    display: flex;
-    gap: 32px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-.footer-links a {
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.footer-links a:hover {
-    color: var(--text-primary);
-}
-
-.footer-bottom {
-    width: 100%;
-    border-top: 1px solid var(--border-color);
-    padding-top: 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-    font-size: 13px;
-}
-
-.social-links-footer {
-    display: flex;
-    gap: 16px;
-}
-
-.social-links-footer a {
-    color: var(--text-muted);
-    transition: color var(--transition-fast);
-}
-
-.social-links-footer a:hover {
-    color: var(--primary);
-}
-
-/* ==========================================================================
       TOAST NOTIFICATION
       ========================================================================== */
 .toast {
@@ -1731,10 +1651,6 @@ footer {
         margin-bottom: 20px;
     }
 
-    .footer-bottom {
-        flex-direction: column;
-        text-align: center;
-    }
 }
 
 @media (max-width: 480px) {
