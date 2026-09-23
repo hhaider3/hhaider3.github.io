@@ -8,7 +8,8 @@ import {
   toFiniteNumber,
 } from './protocol';
 
-const targetPublishIntervalMs = 1000 / 60;
+const targetPublishHz = 60;
+const targetPublishIntervalMs = 1000 / targetPublishHz;
 const maxSocketBufferedBytes = 256_000;
 
 const requestSensorPermission = async () => {
@@ -148,8 +149,39 @@ const PhoneSensorClient = () => {
     let useHttpFallback = false;
     let stopped = false;
     let sentSinceUiUpdate = 0;
+    let rateStartedAt = performance.now();
+    const rateCounts = { sent: 0, motion: 0, orientation: 0 };
+    let rates = { sendHz: null, motionHz: null, orientationHz: null };
+
+    const readStream = () => ({
+      ...rates,
+      targetHz: targetPublishHz,
+      transport: socketReady ? 'WebSocket' : useHttpFallback ? 'HTTP fallback' : 'Connecting',
+    });
+
+    const updateRates = (time) => {
+      const elapsed = time - rateStartedAt;
+      if (elapsed < 1000) return;
+      rates = {
+        sendHz: rateCounts.sent * 1000 / elapsed,
+        motionHz: rateCounts.motion * 1000 / elapsed,
+        orientationHz: rateCounts.orientation * 1000 / elapsed,
+      };
+      rateCounts.sent = 0;
+      rateCounts.motion = 0;
+      rateCounts.orientation = 0;
+      rateStartedAt = time;
+      latestPacketRef.current = { ...latestPacketRef.current, stream: readStream() };
+    };
 
     const updateMotion = (event) => {
+      if ([
+        event.acceleration?.x, event.acceleration?.y, event.acceleration?.z,
+        event.accelerationIncludingGravity?.x, event.accelerationIncludingGravity?.y, event.accelerationIncludingGravity?.z,
+        event.rotationRate?.alpha, event.rotationRate?.beta, event.rotationRate?.gamma,
+      ].some(Number.isFinite)) {
+        rateCounts.motion += 1;
+      }
       latestPacketRef.current = {
         ...(latestPacketRef.current || buildEmptyPacket(sessionId)),
         motion: {
@@ -163,6 +195,9 @@ const PhoneSensorClient = () => {
     };
 
     const updateOrientation = (event) => {
+      if ([event.alpha, event.beta, event.gamma].some(Number.isFinite)) {
+        rateCounts.orientation += 1;
+      }
       latestPacketRef.current = {
         ...(latestPacketRef.current || buildEmptyPacket(sessionId)),
         orientation: {
@@ -184,6 +219,7 @@ const PhoneSensorClient = () => {
         performanceTime: performance.now(),
         secureContext: window.isSecureContext,
         seen: seenRef.current,
+        stream: readStream(),
         screen: {
           angle: getScreenAngle(),
           width: window.innerWidth,
@@ -196,6 +232,7 @@ const PhoneSensorClient = () => {
     };
 
     const notePacketSent = (time) => {
+      rateCounts.sent += 1;
       sentSinceUiUpdate += 1;
 
       if (time - lastSentUiUpdate < 250) {
@@ -247,7 +284,7 @@ const PhoneSensorClient = () => {
       }
     };
 
-    const sendHttpPacket = async (time) => {
+    const sendHttpPacket = async () => {
       if (requestInFlight) {
         return;
       }
@@ -267,7 +304,7 @@ const PhoneSensorClient = () => {
         }
 
         const result = await response.json();
-        notePacketSent(time);
+        notePacketSent(performance.now());
 
         if (!stopped) {
           setStatus('streaming');
@@ -338,8 +375,9 @@ const PhoneSensorClient = () => {
 
     const publish = () => {
       const time = performance.now();
+      updateRates(time);
       if (!sendSocketPacket(time) && useHttpFallback) {
-        sendHttpPacket(time);
+        sendHttpPacket();
       }
 
       nextPublishAt += targetPublishIntervalMs;
@@ -400,6 +438,7 @@ const PhoneSensorClient = () => {
           <h1>Hold your phone like this</h1>
           <p>Straight and vertical, top edge up. Start sensors in this pose so the sword begins upright.</p>
           <small>{sessionId ? `Motion Lab session ${sessionId.toUpperCase()}` : 'No session'}</small>
+          <small>Target: {targetPublishHz} Hz</small>
         </div>
 
         {!window.isSecureContext && (
@@ -457,20 +496,20 @@ const PhoneSensorClient = () => {
 
         <div className="motion-phone-grid">
           <TelemetryTile
-            label="Packets"
-            value={sentCount}
-            detail={`${listenerCount} listener${listenerCount === 1 ? '' : 's'}`}
+            label="Sending"
+            value={isStreaming ? `${formatMetric(preview.stream?.sendHz, 0)} Hz` : 'Paused'}
+            detail={`${sentCount} packets · ${listenerCount} listener${listenerCount === 1 ? '' : 's'}${isStreaming ? ` · ${preview.stream?.transport || 'Connecting'}` : ''}`}
             icon={<RadioTower size={16} />}
           />
           <TelemetryTile
             label="Orientation"
-            value={seen.orientation ? 'On' : '--'}
+            value={isStreaming && seen.orientation ? `${formatMetric(preview.stream?.orientationHz, 0)} Hz` : '--'}
             detail={`${formatMetric(orientation.alpha)} / ${formatMetric(orientation.beta)} / ${formatMetric(orientation.gamma)}`}
             icon={<Compass size={16} />}
           />
           <TelemetryTile
             label="Motion"
-            value={seen.motion ? 'On' : '--'}
+            value={isStreaming && seen.motion ? `${formatMetric(preview.stream?.motionHz, 0)} Hz` : '--'}
             detail={formatVector(acceleration)}
             icon={<Activity size={16} />}
           />

@@ -367,7 +367,13 @@ const MotionLab = () => {
                 </span>
               </div>
               <div className="motion-scene-readout">
-                <span>Hz {packetRate}</span>
+                <span>Received {packetRate} Hz</span>
+                {latestPacket?.stream ? (
+                  <>
+                    <span>Phone {formatMetric(latestPacket.stream.sendHz, 0)} Hz · {latestPacket.stream.transport}</span>
+                    <span>Motion {formatMetric(latestPacket.stream.motionHz, 0)} Hz · Orientation {formatMetric(latestPacket.stream.orientationHz, 0)} Hz</span>
+                  </>
+                ) : latestPacket && <span>Reload phone for rate details</span>}
                 <span>Packets {packetCount}</span>
               </div>
             </div>
