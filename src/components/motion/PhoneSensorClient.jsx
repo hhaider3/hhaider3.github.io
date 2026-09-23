@@ -8,7 +8,7 @@ import {
   toFiniteNumber,
 } from './protocol';
 
-const targetPublishIntervalMs = 1000 / 45;
+const targetPublishIntervalMs = 1000 / 60;
 const maxSocketBufferedBytes = 256_000;
 
 const requestSensorPermission = async () => {
@@ -138,9 +138,9 @@ const PhoneSensorClient = () => {
       return undefined;
     }
 
-    let animationFrame = 0;
+    let publishTimer = 0;
+    let nextPublishAt = performance.now() + targetPublishIntervalMs;
     let fallbackTimer = 0;
-    let lastSend = 0;
     let lastSentUiUpdate = 0;
     let requestInFlight = false;
     let socket = null;
@@ -336,27 +336,31 @@ const PhoneSensorClient = () => {
       }
     }, 1500);
 
-    const tick = (time) => {
-      if (time - lastSend >= targetPublishIntervalMs) {
-        lastSend = time;
-
-        if (!sendSocketPacket(time) && useHttpFallback) {
-          sendHttpPacket(time);
-        }
+    const publish = () => {
+      const time = performance.now();
+      if (!sendSocketPacket(time) && useHttpFallback) {
+        sendHttpPacket(time);
       }
 
-      animationFrame = requestAnimationFrame(tick);
+      nextPublishAt += targetPublishIntervalMs;
+      if (nextPublishAt <= time) {
+        nextPublishAt = time + targetPublishIntervalMs;
+      }
+      publishTimer = window.setTimeout(
+        publish,
+        Math.max(1, Math.ceil(nextPublishAt - performance.now()))
+      );
     };
 
     window.addEventListener('devicemotion', updateMotion);
     window.addEventListener('deviceorientation', updateOrientation);
-    animationFrame = requestAnimationFrame(tick);
+    publishTimer = window.setTimeout(publish, Math.ceil(targetPublishIntervalMs));
 
     return () => {
       flushSentCount();
       stopped = true;
       window.clearTimeout(fallbackTimer);
-      cancelAnimationFrame(animationFrame);
+      window.clearTimeout(publishTimer);
       socket?.close();
       window.removeEventListener('devicemotion', updateMotion);
       window.removeEventListener('deviceorientation', updateOrientation);
