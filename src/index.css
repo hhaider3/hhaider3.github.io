@@ -28,9 +28,9 @@
     /* Aqua Green */
     --secondary-rgb: 20, 214, 180;
     --wallpaper-primary: #19b8ff;
-    --wallpaper-primary-rgb: 25, 184, 255;
     --wallpaper-secondary: #14d6b4;
-    --wallpaper-secondary-rgb: 20, 214, 180;
+    --wallpaper-shadow: #05172d;
+    --wallpaper-shade-opacity: 1;
     --accent: #f472b6;
     /* Rose */
 
@@ -86,9 +86,9 @@
     /* Wallpaper Aqua */
     --secondary-rgb: 11, 169, 142;
     --wallpaper-primary: #0b8fe8;
-    --wallpaper-primary-rgb: 11, 143, 232;
     --wallpaper-secondary: #0ba98e;
-    --wallpaper-secondary-rgb: 11, 169, 142;
+    --wallpaper-shadow: #24465d;
+    --wallpaper-shade-opacity: 0.65;
 
     /* Glassmorphism Details */
     --glass-bg: rgba(255, 253, 250, 0.8);
@@ -2278,40 +2278,25 @@ ul {
 .win7-desktop {
     min-height: 100vh;
     color: #f7fbff;
-    background-image: var(--desktop-wallpaper-url);
-    background-position: center;
-    background-size: cover;
-    background-attachment: fixed;
+    background: var(--wallpaper-shadow);
     position: relative;
     overflow: hidden;
     isolation: isolate;
     user-select: none;
 }
 
-.win7-desktop::before {
-    content: '';
+.desktop-wallpaper {
     position: fixed;
     inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
     pointer-events: none;
     z-index: 0;
-    background:
-        linear-gradient(118deg, rgba(var(--wallpaper-primary-rgb), 0.36), transparent 46%, rgba(var(--wallpaper-secondary-rgb), 0.28)),
-        linear-gradient(58deg, transparent 0 52%, rgba(var(--wallpaper-secondary-rgb), 0.28) 52% 62%, transparent 62%),
-        linear-gradient(180deg, rgba(2, 8, 22, 0.04), rgba(3, 8, 18, 0.36));
-    mix-blend-mode: screen;
-    opacity: 0.82;
 }
 
-.desktop-sheen {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background:
-        linear-gradient(115deg, transparent 0 52%, rgba(var(--wallpaper-primary-rgb), 0.22) 52% 53%, transparent 53%),
-        linear-gradient(130deg, rgba(var(--wallpaper-primary-rgb), 0.2), rgba(var(--wallpaper-secondary-rgb), 0.24));
-    mix-blend-mode: color;
-    opacity: 0.62;
+.desktop-wallpaper-shade {
+    opacity: var(--wallpaper-shade-opacity);
 }
 
 .desktop-selection-marquee {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import DesktopStage from './desktop/DesktopStage';
+import DesktopWallpaper from './desktop/DesktopWallpaper';
 import Taskbar from './desktop/Taskbar';
 import WindowLayer from './desktop/WindowLayer';
 import useDesktopApps from './desktop/useDesktopApps';
@@ -25,7 +26,6 @@ import {
   statsExpandedWidgetHeight,
   widgetStackGap,
 } from './desktop/desktopUtils';
-import wallpaper from '../assets/win7-portfolio-wallpaper.webp';
 
 const DesktopShell = ({ theme, toggleTheme }) => {
   const isMobile = useIsMobile();
@@ -617,7 +617,6 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     <div
       ref={desktopRef}
       className="win7-desktop"
-      style={{ '--desktop-wallpaper-url': `url(${wallpaper})` }}
       onPointerDown={handleDesktopPointerDown}
       onPointerMove={handleDesktopPointerMove}
       onPointerUp={finishDesktopSelection}
@@ -634,7 +633,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         }
       }}
     >
-      <div className="desktop-sheen" aria-hidden="true"></div>
+      <DesktopWallpaper />
 
       {isSelectionVisible && (
         <div

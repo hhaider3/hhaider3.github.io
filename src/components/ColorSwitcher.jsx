@@ -191,12 +191,10 @@ const ColorSwitcher = ({
       root.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
       root.style.setProperty('--primary-hover', darkenHex(hex, 12));
       root.style.setProperty('--wallpaper-primary', hex);
-      root.style.setProperty('--wallpaper-primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
     } else {
       root.style.setProperty('--secondary', hex);
       root.style.setProperty('--secondary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
       root.style.setProperty('--wallpaper-secondary', hex);
-      root.style.setProperty('--wallpaper-secondary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
     }
   }, []);
 

@@ -31,7 +31,7 @@ const useDesktopWidgets = ({
   {
     id: 'colors',
     className: 'widget-colors',
-    info: 'Theme color customizer. Pick any accent color using the color wheel - your selection is saved to localStorage and persists across visits.',
+    info: 'Personalize the desktop wallpaper and app accents. Primary colors the sky and glass panes; Secondary colors the glow and light ribbons. Your colors are saved for each theme.',
     content: (
       <ColorSwitcher
         theme={theme}
