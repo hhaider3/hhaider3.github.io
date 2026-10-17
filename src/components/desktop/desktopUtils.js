@@ -1,4 +1,5 @@
 import { WALLPAPER_COLOR_DEFAULTS } from '../../constants/colors';
+import { readStorage } from '../../utils/storage';
 
 export const colorStorageKey = 'portfolioThemeColors';
 export const desktopLayoutStorageKey = 'portfolioDesktopLayout';
@@ -45,7 +46,7 @@ export const getInitialThemeColors = () => {
     return WALLPAPER_COLOR_DEFAULTS;
   }
 
-  const savedColors = window.localStorage.getItem(colorStorageKey);
+  const savedColors = readStorage(colorStorageKey);
   if (!savedColors) {
     return WALLPAPER_COLOR_DEFAULTS;
   }
@@ -134,13 +135,187 @@ export const clampWidgetRect = (rect, id) => {
   return { ...point, w, h };
 };
 
+// Widgets may touch but never overlap.
+export const doWidgetRectsOverlap = (a, b) => (
+  a.x < b.x + b.w
+  && a.x + a.w > b.x
+  && a.y < b.y + b.h
+  && a.y + a.h > b.y
+);
+
+const overlapsAny = (rect, others) => others.some(other => doWidgetRectsOverlap(rect, other));
+
+const isWidgetRectInViewport = (rect) => (
+  rect.x >= desktopMargin - 0.5
+  && rect.y >= desktopMargin - 0.5
+  && rect.x + rect.w <= window.innerWidth - desktopMargin + 0.5
+  && rect.y + rect.h <= window.innerHeight - desktopTaskbarHeight - desktopMargin + 0.5
+);
+
+// Nearest in-viewport spot for `rect` that doesn't overlap `blockers`. Candidate
+// edges come from the viewport bounds and from lining up beside each blocker.
+const findFreeWidgetSpot = (rect, blockers) => {
+  const maxX = window.innerWidth - desktopMargin - rect.w;
+  const maxY = window.innerHeight - desktopTaskbarHeight - desktopMargin - rect.h;
+  const xs = new Set([rect.x, desktopMargin, maxX]);
+  const ys = new Set([rect.y, desktopMargin, maxY]);
+
+  blockers.forEach((other) => {
+    xs.add(other.x);
+    xs.add(other.x - rect.w - widgetStackGap);
+    xs.add(other.x + other.w + widgetStackGap);
+    ys.add(other.y);
+    ys.add(other.y - rect.h - widgetStackGap);
+    ys.add(other.y + other.h + widgetStackGap);
+  });
+
+  let best = null;
+  let bestDistance = Infinity;
+
+  xs.forEach((x) => {
+    ys.forEach((y) => {
+      const candidate = { ...rect, x, y };
+      if (!isWidgetRectInViewport(candidate) || overlapsAny(candidate, blockers)) {
+        return;
+      }
+
+      const distance = (x - rect.x) ** 2 + (y - rect.y) ** 2;
+      if (distance < bestDistance) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    });
+  });
+
+  return best;
+};
+
+export const desktopIconSize = 96;
+
+export const getIconRects = (iconPositions = {}) => Object.values(iconPositions)
+  .map(({ x, y }) => ({ x, y, w: desktopIconSize, h: desktopIconSize }));
+
+// Clamp every widget into the viewport and move any that overlap another
+// widget to the nearest free spot, preferring spots that leave the desktop
+// icons uncovered. `anchorIds` are placed first so they keep their position.
+export const packWidgetRects = (rects, { anchorIds = [], iconRects = [] } = {}) => {
+  if (typeof window === 'undefined') {
+    return rects;
+  }
+
+  const ids = [
+    ...anchorIds.filter(id => rects[id]),
+    ...Object.keys(rects).filter(id => !anchorIds.includes(id)),
+  ];
+  const placed = [];
+  const packed = {};
+
+  ids.forEach((id) => {
+    const rect = clampWidgetRect(rects[id], id);
+    let next = rect;
+
+    if (overlapsAny(rect, placed)) {
+      const min = widgetMinimums[id] || rect;
+      const minRect = { ...rect, w: min.w, h: min.h };
+      const placedAndIcons = [...placed, ...iconRects];
+      // Shrinking to the minimum size beats covering icons; covering icons
+      // beats overlapping another widget.
+      next = findFreeWidgetSpot(rect, placedAndIcons)
+        || findFreeWidgetSpot(minRect, placedAndIcons)
+        || findFreeWidgetSpot(rect, placed)
+        || findFreeWidgetSpot(minRect, placed)
+        || rect;
+    }
+
+    packed[id] = next;
+    placed.push(next);
+  });
+
+  return packed;
+};
+
+// Slide `current` toward `target` along one axis, stopping flush against any
+// widget in the way.
+const sweepWidgetAxis = (current, targetValue, axis, others) => {
+  const [pos, size, crossPos, crossSize] = axis === 'x' ? ['x', 'w', 'y', 'h'] : ['y', 'h', 'x', 'w'];
+  let next = targetValue;
+
+  others.forEach((other) => {
+    const crossesPath = current[crossPos] < other[crossPos] + other[crossSize]
+      && current[crossPos] + current[crossSize] > other[crossPos];
+    if (!crossesPath) {
+      return;
+    }
+
+    if (next > current[pos] && other[pos] >= current[pos] + current[size]) {
+      next = Math.min(next, other[pos] - current[size]);
+    }
+    if (next < current[pos] && other[pos] + other[size] <= current[pos]) {
+      next = Math.max(next, other[pos] + other[size]);
+    }
+  });
+
+  return { ...current, [pos]: next };
+};
+
+export const moveWidgetWithoutOverlap = (current, target, others) => {
+  // A widget that already overlaps (e.g. an old saved layout) moves freely so it can be dragged clear.
+  if (overlapsAny(current, others)) {
+    return target;
+  }
+
+  // Follow the pointer whenever its spot is clear, even past another widget.
+  if (!overlapsAny(target, others)) {
+    return target;
+  }
+
+  // Try both axis orders and keep whichever lands closer to the pointer, so a
+  // diagonal drag slides around a corner instead of snagging on it.
+  const distanceToTarget = rect => (rect.x - target.x) ** 2 + (rect.y - target.y) ** 2;
+  const candidates = [
+    sweepWidgetAxis(sweepWidgetAxis(current, target.x, 'x', others), target.y, 'y', others),
+    sweepWidgetAxis(sweepWidgetAxis(current, target.y, 'y', others), target.x, 'x', others),
+  ].filter(rect => !overlapsAny(rect, others));
+
+  if (!candidates.length) {
+    return current;
+  }
+
+  return candidates.reduce((best, rect) => (distanceToTarget(rect) < distanceToTarget(best) ? rect : best));
+};
+
+export const resizeWidgetWithoutOverlap = (current, target, others) => {
+  if (overlapsAny(current, others)) {
+    return target;
+  }
+
+  let { w, h } = target;
+
+  others.forEach((other) => {
+    const sharesRows = current.y < other.y + other.h && current.y + current.h > other.y;
+    if (sharesRows && w > current.w && other.x >= current.x + current.w) {
+      w = Math.min(w, other.x - current.x);
+    }
+  });
+
+  others.forEach((other) => {
+    const sharesColumns = current.x < other.x + other.w && current.x + w > other.x;
+    if (sharesColumns && h > current.h && other.y >= current.y + current.h) {
+      h = Math.min(h, other.y - current.y);
+    }
+  });
+
+  const next = { ...target, w, h };
+  return overlapsAny(next, others) ? current : next;
+};
+
 export const loadDesktopLayout = () => {
   if (typeof window === 'undefined') {
     return null;
   }
 
   try {
-    const savedLayout = JSON.parse(window.localStorage.getItem(desktopLayoutStorageKey));
+    const savedLayout = JSON.parse(readStorage(desktopLayoutStorageKey));
     return savedLayout?.version === desktopLayoutVersion ? savedLayout : null;
   } catch {
     return null;
@@ -165,8 +340,8 @@ export const getInitialIconPositions = () => {
   return desktopIconOrder.reduce((positions, id, index) => {
     positions[id] = clampDesktopPoint(
       savedLayout?.icons?.[id] || getDefaultIconPosition(index),
-      96,
-      96
+      desktopIconSize,
+      desktopIconSize
     );
     return positions;
   }, {});
@@ -195,7 +370,7 @@ export const getInitialWidgetRects = () => {
   }, {});
 
   if (!isStatsExpanded || !rects.stats) {
-    return rects;
+    return packWidgetRects(rects, { iconRects: getIconRects(getInitialIconPositions()) });
   }
 
   const statsRect = rects.stats;
@@ -218,5 +393,8 @@ export const getInitialWidgetRects = () => {
     }
   });
 
-  return rects;
+  return packWidgetRects(rects, {
+    anchorIds: ['stats'],
+    iconRects: getIconRects(getInitialIconPositions()),
+  });
 };

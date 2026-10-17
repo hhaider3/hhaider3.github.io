@@ -7,10 +7,12 @@ import useDesktopApps from './desktop/useDesktopApps';
 import useDesktopWidgets from './desktop/useDesktopWidgets';
 import useIsMobile from './desktop/useIsMobile';
 import useLayoutPersistence from './desktop/useLayoutPersistence';
+import { removeStorage, writeStorage } from '../utils/storage';
 import {
   clampDesktopPoint,
   clampWidgetRect,
   colorStorageKey,
+  desktopIconSize,
   desktopLayoutStorageKey,
   doesRectIntersect,
   getDefaultIconPosition,
@@ -18,14 +20,22 @@ import {
   getInitialIconPositions,
   getInitialStatsExpanded,
   getInitialThemeColors,
+  getIconRects,
   getInitialWidgetRects,
   getSelectionRect,
   iconDragThreshold,
+  moveWidgetWithoutOverlap,
+  packWidgetRects,
+  resizeWidgetWithoutOverlap,
   selectionThreshold,
   statsCollapsedWidgetHeight,
   statsExpandedWidgetHeight,
   widgetStackGap,
 } from './desktop/desktopUtils';
+
+const getOtherWidgetRects = (rects, id) => Object.entries(rects)
+  .filter(([otherId]) => otherId !== id)
+  .map(([, rect]) => rect);
 
 const DesktopShell = ({ theme, toggleTheme }) => {
   const isMobile = useIsMobile();
@@ -40,6 +50,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const [selectedIds, setSelectedIds] = useState(['about']);
   const [selectionBox, setSelectionBox] = useState(null);
   const [iconPositions, setIconPositions] = useState(getInitialIconPositions);
+  const iconPositionsRef = useRef(iconPositions);
   const [widgetRects, setWidgetRects] = useState(getInitialWidgetRects);
   const [widgetZIndexes, setWidgetZIndexes] = useState({ clock: 1, stats: 2, colors: 3 });
   const [isStatsExpanded, setIsStatsExpanded] = useState(getInitialStatsExpanded);
@@ -58,7 +69,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   const nextWidgetZ = useCallback(() => ++widgetZCounterRef.current, []);
 
   useEffect(() => {
-    window.localStorage.setItem(colorStorageKey, JSON.stringify(themeColors));
+    writeStorage(colorStorageKey, JSON.stringify(themeColors));
   }, [themeColors]);
 
   const handleStatsExpandedChange = useCallback((nextExpanded) => {
@@ -103,7 +114,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
         };
       });
 
-      return nextRects;
+      return packWidgetRects(nextRects, {
+        anchorIds: ['stats'],
+        iconRects: getIconRects(iconPositionsRef.current),
+      });
     });
 
     if (nextExpanded) {
@@ -119,6 +133,10 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     theme,
     themeColors,
   });
+
+  useEffect(() => {
+    iconPositionsRef.current = iconPositions;
+  }, [iconPositions]);
 
   useLayoutPersistence({ iconPositions, widgetRects, isStatsExpanded, isMobile });
 
@@ -139,6 +157,44 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   };
 
   useEffect(() => () => cancelAnimationFrame(dragFrameRef.current), []);
+
+  // Keep icons and widgets reachable when the viewport shrinks.
+  useEffect(() => {
+    if (isMobile) {
+      return undefined;
+    }
+
+    let frameId = null;
+    const keepChangedOnly = (prev, next) => (
+      Object.keys(next).some(id => (
+        next[id].x !== prev[id].x
+        || next[id].y !== prev[id].y
+        || next[id].w !== prev[id].w
+        || next[id].h !== prev[id].h
+      )) ? next : prev
+    );
+    const reclampLayout = () => {
+      frameId = null;
+      setIconPositions(prev => keepChangedOnly(prev, Object.fromEntries(
+        Object.entries(prev).map(([id, point]) => [id, clampDesktopPoint(point, desktopIconSize, desktopIconSize)])
+      )));
+      setWidgetRects(prev => keepChangedOnly(prev, packWidgetRects(prev, {
+        iconRects: getIconRects(iconPositionsRef.current),
+      })));
+    };
+    const handleResize = () => {
+      if (frameId === null) {
+        frameId = requestAnimationFrame(reclampLayout);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(frameId);
+    };
+  }, [isMobile]);
 
   const activeSelectionRect = selectionBox ? getSelectionRect(selectionBox) : null;
   const isSelectionVisible = activeSelectionRect
@@ -272,7 +328,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     const nextPoint = clampDesktopPoint({
       x: drag.startX + dx,
       y: drag.startY + dy,
-    }, 96, 96);
+    }, desktopIconSize, desktopIconSize);
 
     queueDragUpdate(() => setIconPositions(prev => ({
       ...prev,
@@ -409,7 +465,11 @@ const DesktopShell = ({ theme, toggleTheme }) => {
 
       queueDragUpdate(() => setWidgetRects(prev => ({
         ...prev,
-        [drag.id]: { ...point, w: drag.startW, h: drag.startH },
+        [drag.id]: moveWidgetWithoutOverlap(
+          prev[drag.id],
+          { ...point, w: drag.startW, h: drag.startH },
+          getOtherWidgetRects(prev, drag.id)
+        ),
       })));
       return;
     }
@@ -431,7 +491,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
     nextRect = clampWidgetRect(nextRect, drag.id);
     queueDragUpdate(() => setWidgetRects(prev => ({
       ...prev,
-      [drag.id]: nextRect,
+      [drag.id]: resizeWidgetWithoutOverlap(prev[drag.id], nextRect, getOtherWidgetRects(prev, drag.id)),
     })));
   };
 
@@ -602,7 +662,7 @@ const DesktopShell = ({ theme, toggleTheme }) => {
   };
 
   const resetDesktopLayout = () => {
-    window.localStorage.removeItem(desktopLayoutStorageKey);
+    removeStorage(desktopLayoutStorageKey);
     setIconPositions(getInitialIconPositions());
     setWidgetRects(getInitialWidgetRects());
     setWidgetZIndexes({ clock: 1, stats: 2, colors: 3 });

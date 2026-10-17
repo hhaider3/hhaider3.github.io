@@ -1,4 +1,4 @@
-import { BookOpen, ArrowUpRight, Lock } from 'lucide-react';
+import { BookOpen, ArrowUpRight } from 'lucide-react';
 
 const Publications = () => {
   return (
@@ -34,9 +34,9 @@ const Publications = () => {
             </p>
             <div className="pub-footer">
               <span className="pub-citation">Materials Today: Proceedings, 26(2), 2103–2107</span>
-              <span className="pub-link disabled">
-                Proceedings <Lock size={16} />
-              </span>
+              <a href="https://doi.org/10.1016/j.matpr.2020.02.454" target="_blank" rel="noreferrer" className="pub-link">
+                Read Paper <ArrowUpRight size={16} />
+              </a>
             </div>
           </div>
 
@@ -49,9 +49,9 @@ const Publications = () => {
             </p>
             <div className="pub-footer">
               <span className="pub-citation">Materials Today: Proceedings, 26(2), 324–330</span>
-              <span className="pub-link disabled">
-                Proceedings <Lock size={16} />
-              </span>
+              <a href="https://doi.org/10.1016/j.matpr.2019.11.320" target="_blank" rel="noreferrer" className="pub-link">
+                Read Paper <ArrowUpRight size={16} />
+              </a>
             </div>
           </div>
         </div>

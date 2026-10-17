@@ -20,6 +20,7 @@ const Skills = () => {
               <span className="skill-pill">Python</span>
               <span className="skill-pill">JavaScript</span>
               <span className="skill-pill">TypeScript</span>
+              <span className="skill-pill">Rust</span>
               <span className="skill-pill">Swift</span>
               <span className="skill-pill">C/C++</span>
               <span className="skill-pill">C#</span>

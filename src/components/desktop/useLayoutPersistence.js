@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { desktopLayoutStorageKey, desktopLayoutVersion } from './desktopUtils';
+import { writeStorage } from '../../utils/storage';
 
 const saveLayout = (pending) => {
   if (!pending.current) return;
-  window.localStorage.setItem(desktopLayoutStorageKey, JSON.stringify(pending.current));
+  writeStorage(desktopLayoutStorageKey, JSON.stringify(pending.current));
   pending.current = null;
 };
 

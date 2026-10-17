@@ -73,20 +73,25 @@ const timelineData = [
 ];
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const timelineStart = { year: 2019, month: 8 };
-const timelineEndExclusive = { year: 2026, month: 6 };
-const timelineHeight = 960;
+const pixelsPerMonth = 11.7;
 const timelineBottomReserve = 340;
 
 const toMonthNumber = ({ year, month }) => year * 12 + month - 1;
-const timelineStartMonth = toMonthNumber(timelineStart);
-const timelineEndMonth = toMonthNumber(timelineEndExclusive);
-const timelineMonthSpan = timelineEndMonth - timelineStartMonth;
-
 const monthToDate = (monthNumber) => ({
   year: Math.floor(monthNumber / 12),
   month: (monthNumber % 12) + 1,
 });
+
+// Entries without an `end` are ongoing and run to the current month.
+const now = new Date();
+const currentMonth = { year: now.getFullYear(), month: now.getMonth() + 1 };
+const timelineEntries = timelineData.map(item => ({ ...item, end: item.end || currentMonth }));
+
+// The axis spans from the earliest start to the month after the latest end.
+const timelineStartMonth = Math.min(...timelineEntries.map(item => toMonthNumber(item.start)));
+const timelineEndMonth = Math.max(...timelineEntries.map(item => toMonthNumber(item.end))) + 1;
+const timelineMonthSpan = timelineEndMonth - timelineStartMonth;
+const timelineHeight = Math.round(timelineMonthSpan * pixelsPerMonth);
 
 const getMonthTopOffset = (date) => {
   const monthNumber = toMonthNumber(date);
@@ -100,7 +105,7 @@ const formatMonthYear = ({ year, month }) => `${monthNames[month - 1]} ${year}`;
 const estimatedCardHeight = 240;
 
 const importantMonths = new Set(
-  timelineData.flatMap(item => [toMonthNumber(item.start), toMonthNumber(item.end)])
+  timelineEntries.flatMap(item => [toMonthNumber(item.start), toMonthNumber(item.end)])
 );
 
 const axisTicks = Array.from({ length: timelineMonthSpan }, (_, index) => {
@@ -124,7 +129,7 @@ const axisTicks = Array.from({ length: timelineMonthSpan }, (_, index) => {
   };
 });
 
-const timelineItemsByDate = timelineData
+const timelineItemsByDate = timelineEntries
   .map(item => {
     const periodTopOffset = getMonthTopOffset(item.end);
     const periodBottomOffset = getMonthBottomOffset(item.start);

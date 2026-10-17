@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import ColorSwitcher from '../ColorSwitcher';
+import AppErrorBoundary from './AppErrorBoundary';
 
 const RESIZE_EDGES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
 const MIN_WIN_W = 420;
@@ -71,6 +72,38 @@ const BrowserWindow = ({
       window.clearTimeout(minimizeTimerRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    if (isMobile) {
+      return undefined;
+    }
+
+    let frameId = null;
+    const fitToViewport = () => {
+      frameId = null;
+      setWinRect(prev => {
+        if (!prev) return prev;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const w = Math.max(Math.min(MIN_WIN_W, vw), Math.min(prev.w, vw));
+        const h = Math.max(Math.min(MIN_WIN_H, vh - 52), Math.min(prev.h, vh - 52));
+        const x = Math.max(0, Math.min(prev.x, vw - w));
+        const y = Math.max(0, Math.min(prev.y, vh - 52 - h));
+        return x === prev.x && y === prev.y && w === prev.w && h === prev.h ? prev : { x, y, w, h };
+      });
+    };
+    const handleResize = () => {
+      if (frameId === null) {
+        frameId = requestAnimationFrame(fitToViewport);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(frameId);
+    };
+  }, [isMobile]);
 
   const resolveRect = useCallback(() => {
     if (winRect) return winRect;
@@ -363,9 +396,14 @@ const BrowserWindow = ({
       </div>
 
       <div className="window-content">
-        <Suspense fallback={<div style={{ padding: '24px' }}>Loading...</div>}>
-          <Content />
-        </Suspense>
+        <AppErrorBoundary
+          title={app.title}
+          hint={app.requiresWebGL ? 'It needs WebGL, which this browser or device has turned off or does not support.' : undefined}
+        >
+          <Suspense fallback={<div style={{ padding: '24px' }}>Loading...</div>}>
+            <Content />
+          </Suspense>
+        </AppErrorBoundary>
       </div>
     </section>
   );

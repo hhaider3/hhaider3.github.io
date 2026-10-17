@@ -58,11 +58,19 @@ const Taskbar = ({
             </div>
           </div>
           <div className="start-menu-list">
-            {desktopItems.slice(0, 6).map(item => (
-              <button type="button" key={item.id} onClick={() => openItem(item)}>
-                <span className={`start-menu-icon ${item.accent}`}>{item.icon}</span>
-                <span>{item.title}</span>
-              </button>
+            {[
+              { kind: 'internal', label: 'Apps' },
+              { kind: 'external', label: 'Links' },
+            ].map(group => (
+              <div className="start-menu-group" key={group.kind}>
+                <span className="start-menu-group-label">{group.label}</span>
+                {desktopItems.filter(item => item.kind === group.kind).map(item => (
+                  <button type="button" key={item.id} onClick={() => openItem(item)}>
+                    <span className={`start-menu-icon ${item.accent}`}>{item.icon}</span>
+                    <span>{item.title}</span>
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         </div>

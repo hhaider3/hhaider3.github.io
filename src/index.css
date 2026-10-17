@@ -1,7 +1,6 @@
 /* ==========================================================================
    DESIGN SYSTEM & VARIABLES
    ========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
     /* Fonts */
@@ -3302,6 +3301,33 @@ ul {
     overflow: auto;
 }
 
+.app-error-fallback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 100%;
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.app-error-fallback strong {
+    color: var(--text-primary);
+    font-size: 1.05rem;
+}
+
+.app-error-fallback button {
+    margin-top: 6px;
+    padding: 7px 16px;
+    border: 1px solid var(--border-hover);
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
 .window-content section {
     min-height: auto;
     background: transparent;
@@ -3494,7 +3520,7 @@ ul {
     position: absolute;
     left: 0;
     bottom: 52px;
-    width: 310px;
+    width: 380px;
     padding: 10px;
     border: 1px solid rgba(255, 255, 255, 0.36);
     border-radius: 8px;
@@ -3545,7 +3571,27 @@ ul {
 .start-menu-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
+    max-height: calc(100vh - 160px);
+    max-height: calc(100dvh - 160px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.start-menu-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 4px;
+}
+
+.start-menu-group-label {
+    grid-column: 1 / -1;
+    padding: 2px 7px;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .start-menu-list button {
@@ -3559,6 +3605,14 @@ ul {
     gap: 10px;
     cursor: pointer;
     text-align: left;
+    min-width: 0;
+    font-size: 0.84rem;
+}
+
+.start-menu-list button > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .start-menu-list button:hover {
@@ -3797,7 +3851,7 @@ ul {
     }
 
     .start-menu {
-        width: min(310px, calc(100vw - 16px));
+        width: min(380px, calc(100vw - 16px));
     }
 }
 
