@@ -25,7 +25,7 @@ const projectsData = [
   {
     id: 11,
     title: 'Endless Drive (Project Magellan)',
-    date: 'Oct 2026 – Present',
+    date: 'Sep 2026 – Present',
     category: 'game',
     description: 'Built an endless, procedurally generated world to drive, sail, and fly through, with two vehicles: an off-road 4×4 that turns into a boat and a plane, and a supercar with cold-gas thrusters.',
     details: [
@@ -81,7 +81,7 @@ const projectsData = [
   {
     id: 12,
     title: 'TERMINAL // BREACH',
-    date: 'Oct 2026',
+    date: 'Sep 2026',
     category: 'game',
     description: 'Developed an arena FPS that runs in a terminal: five waves, then an endless mode, with its game simulation, renderer, input handling, and terminal lifecycle implemented in Rust.',
     details: [
@@ -165,7 +165,7 @@ const projectsData = [
       'Showed per-video download progress, played saved torrents straight from disk, and stopped seeding once the queue finished.',
       'Wrapped libmpv for rendering and used FFmpeg to inspect duration, resolution, frame rate, codecs, and container formats.',
     ],
-    tags: ['Swift', 'SwiftUI', 'macOS', 'libmpv', 'FFmpeg', 'libtorrent'],
+    tags: ['Swift', 'SwiftUI', 'macOS', 'libmpv', 'FFmpeg', 'WebTorrent'],
     gradientClass: 'bg-gradient-media',
     icon: <Clapperboard className="project-banner-icon" />,
     links: [

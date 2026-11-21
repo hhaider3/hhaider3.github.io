@@ -22,6 +22,8 @@ const Skills = () => {
               <span className="skill-pill">TypeScript</span>
               <span className="skill-pill">Rust</span>
               <span className="skill-pill">Swift</span>
+              <span className="skill-pill">Kotlin</span>
+              <span className="skill-pill">Java</span>
               <span className="skill-pill">C/C++</span>
               <span className="skill-pill">C#</span>
               <span className="skill-pill">SQL</span>
@@ -39,6 +41,7 @@ const Skills = () => {
               <span className="skill-pill">React</span>
               <span className="skill-pill">React Native</span>
               <span className="skill-pill">SwiftUI</span>
+              <span className="skill-pill">Jetpack Compose</span>
               <span className="skill-pill">Three.js</span>
               <span className="skill-pill">WebGL</span>
               <span className="skill-pill">WebAssembly</span>
@@ -77,6 +80,8 @@ const Skills = () => {
               <span className="skill-pill">FFmpeg</span>
               <span className="skill-pill">libmpv</span>
               <span className="skill-pill">Xcode</span>
+              <span className="skill-pill">Android Studio</span>
+              <span className="skill-pill">libtorrent / WebTorrent</span>
               <span className="skill-pill">PyInstaller</span>
               <span className="skill-pill">Selenium</span>
               <span className="skill-pill">Git</span>
@@ -104,6 +109,8 @@ const Skills = () => {
               <span className="skill-pill">SGP4 / TLE Propagation</span>
               <span className="skill-pill">Geospatial Visualization</span>
               <span className="skill-pill">UCI Chess Protocol</span>
+              <span className="skill-pill">Orbital Mechanics</span>
+              <span className="skill-pill">Procedural Generation</span>
               <span className="skill-pill">Cybersecurity Concepts</span>
             </div>
           </div>

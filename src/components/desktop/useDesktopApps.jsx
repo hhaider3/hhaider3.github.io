@@ -149,7 +149,7 @@ const useDesktopApps = () => {
     },
     {
       id: 'kerbal-ish',
-      title: 'Kerbal-ish Space Program',
+      title: 'Kerbal-ish',
       href: 'https://kerbal-ish.pages.dev/',
       icon: <Rocket size={28} />,
       accent: 'accent-space',
