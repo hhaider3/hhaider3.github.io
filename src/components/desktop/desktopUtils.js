@@ -39,6 +39,7 @@ export const desktopIconOrder = [
   'stockfish-board',
   'endless-drive',
   'terminal-breach',
+  'kerbal-ish',
 ];
 
 export const getInitialThemeColors = () => {

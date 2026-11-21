@@ -1076,6 +1076,14 @@ ul {
     background: linear-gradient(135deg, #713f12, #d97706);
 }
 
+.bg-gradient-space {
+    background: linear-gradient(135deg, #0b1026, #4338ca 55%, #14b8a6);
+}
+
+.bg-gradient-android {
+    background: linear-gradient(135deg, #14532d, #22c55e);
+}
+
 .project-banner-icon {
     width: 48px;
     height: 48px;
@@ -2470,6 +2478,10 @@ ul {
 
 .accent-chess {
     background-color: #1d3b2c;
+}
+
+.accent-space {
+    background-color: #1b1f4b;
 }
 
 .desktop-widgets {

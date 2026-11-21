@@ -9,6 +9,7 @@ import {
   Mail,
   MonitorPlay,
   RadioTower,
+  Rocket,
   Satellite,
   Terminal,
   User,
@@ -145,6 +146,13 @@ const useDesktopApps = () => {
       href: 'https://github.com/hhaider3/terminalshooter#play',
       icon: <Terminal size={28} />,
       accent: 'accent-red',
+    },
+    {
+      id: 'kerbal-ish',
+      title: 'Kerbal-ish Space Program',
+      href: 'https://kerbal-ish.pages.dev/',
+      icon: <Rocket size={28} />,
+      accent: 'accent-space',
     },
   ], []);
 

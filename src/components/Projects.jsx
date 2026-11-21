@@ -1,17 +1,37 @@
 import { useState } from 'react';
-import { Search, Bot, Car, Terminal, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, Satellite, Bluetooth, Clapperboard, Crown, ExternalLink, Play } from 'lucide-react';
+import { Search, Bot, Car, Terminal, Gamepad2, MessageSquare, Cpu, Globe, RadioTower, Satellite, Bluetooth, Clapperboard, Crown, ExternalLink, Play, Rocket, Smartphone, Download } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 
 const projectsData = [
   {
+    id: 13,
+    title: 'Kerbal-ish Space Program',
+    date: 'Nov 2026',
+    category: 'game',
+    description: 'Built a browser spaceflight sandbox inspired by Kerbal Space Program: assemble staged rockets from a 40-part workshop, fly them through the atmosphere, plan maneuvers, reach orbit, and land on the Mun.',
+    details: [
+      'Simulated inverse-square gravity from two bodies, atmospheric drag and rotation, pressure-dependent engine thrust, and stage-specific fuel flow with velocity Verlet integration in SI units.',
+      'Designed a drag-and-drop vehicle workshop with catalog search, smart attachment, stage assemblies, undo/redo, exploded views, and automatic design saves.',
+      'Added an ascent autopilot that flies the gravity turn, drops spent stages, and circularizes, plus maneuver nodes, time warp, SAS modes, and validated quicksaves covered by deterministic regression tests.',
+    ],
+    tags: ['JavaScript', 'Three.js', 'Orbital Mechanics', 'Physics Simulation', 'Node.js', 'Cloudflare Pages'],
+    gradientClass: 'bg-gradient-space',
+    icon: <Rocket className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/ksp', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://kerbal-ish.pages.dev/', label: 'Play Online', icon: <Play size={16} /> }
+    ]
+  },
+  {
     id: 11,
     title: 'Endless Drive (Project Magellan)',
+    date: 'Oct 2026 – Present',
     category: 'game',
-    description: 'Built an endless browser driving playground with procedurally generated terrain, roads, forests, landmarks, and stunt ramps. Shareable seeds recreate the same landscape.',
+    description: 'Built an endless, procedurally generated world to drive, sail, and fly through, with two vehicles: an off-road 4×4 that turns into a boat and a plane, and a supercar with cold-gas thrusters.',
     details: [
-      'Streamed terrain chunks through a module worker and used instanced scenery to render an expansive Three.js world.',
-      'Implemented fixed-step vehicle physics with drifting, jumping, collisions, destructible props, and barrel-roll ramps.',
-      'Added keyboard and touch controls, three camera views, a terrain minimap, and locally saved trip records.',
+      'Generated meadows, forests, deserts, snowfields, lakes, rivers, and inland seas in a module worker, with a road network that follows the terrain and instanced scenery for a large Three.js world.',
+      'Implemented fixed-step vehicle physics for driving, boating, and flight, with jump and barrel-roll ramps, collisions, and thunder, sand, and snow storms.',
+      'Added a Synth mode, an original soundtrack, a garage view, shareable seeds, and touch controls; an Android companion app runs the game above 60 fps.',
     ],
     tags: ['JavaScript', 'Three.js', 'WebGL', 'Web Workers', 'Procedural Generation', 'Cloudflare Pages'],
     gradientClass: 'bg-gradient-globe',
@@ -22,14 +42,53 @@ const projectsData = [
     ]
   },
   {
+    id: 14,
+    title: 'andrompv',
+    date: 'Oct 2026',
+    category: 'native',
+    description: 'Rebuilt macmpv natively for Android with a Jetpack Compose glass interface over real mpv and FFmpeg playback.',
+    details: [
+      'Bridged libmpv and FFmpeg through JNI and streamed torrents with native libtorrent.',
+      'Added double-tap seeking, swipe gestures for volume and brightness, picture-in-picture, and background audio.',
+      'Shipped in-app updates delivered from GitHub releases.',
+    ],
+    tags: ['Kotlin', 'Jetpack Compose', 'libmpv', 'FFmpeg', 'libtorrent', 'JNI'],
+    gradientClass: 'bg-gradient-media',
+    icon: <Smartphone className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/andrompv', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://github.com/hhaider3/andrompv/releases/latest', label: 'Download', icon: <Download size={16} /> }
+    ]
+  },
+  {
+    id: 15,
+    title: 'Endless Drive for Android',
+    date: 'Oct 2026',
+    category: 'native',
+    description: 'Packaged Endless Drive as a full-screen Android app that requests the display\'s fastest refresh mode, so the game runs above the 60 Hz cap many phone browsers impose.',
+    details: [
+      'Hosted the game in a WebView served from local assets, including byte-range responses for smooth music playback.',
+      'Downloaded new game versions automatically over Wi-Fi so the app stays current without store updates.',
+    ],
+    tags: ['Java', 'Android', 'WebView', 'High Refresh Rate'],
+    gradientClass: 'bg-gradient-android',
+    icon: <Car className="project-banner-icon" />,
+    links: [
+      { url: 'https://github.com/hhaider3/endless-drive-android', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://github.com/hhaider3/endless-drive-android/releases/latest', label: 'Download APK', icon: <Download size={16} /> }
+    ]
+  },
+  {
     id: 12,
     title: 'TERMINAL // BREACH',
+    date: 'Oct 2026',
     category: 'game',
-    description: 'Developed a five-wave arena FPS that runs in a terminal, with its game simulation, renderer, input handling, and terminal lifecycle implemented in Rust.',
+    description: 'Developed an arena FPS that runs in a terminal: five waves, then an endless mode, with its game simulation, renderer, input handling, and terminal lifecycle implemented in Rust.',
     details: [
       'Rendered an industrial arena, procedural enemies, shotgun, lighting, and HUD using truecolor or 256-color terminal output.',
       'Built enemy variants, shotgun combat, dodging, pickups, and score multipliers with a fixed 120 Hz simulation.',
-      'Used Crossterm for keyboard, mouse, focus, and resize events, with incremental cell updates and terminal restoration on exit.',
+      'Used Crossterm for keyboard, mouse, focus, and resize events, with pixel-precise mouse aim where the terminal supports it and incremental cell updates.',
+      'Saved a local player profile with best scores across runs.',
     ],
     tags: ['Rust', 'Crossterm', 'ANSI', 'Terminal Rendering', 'Game Physics', 'Cargo'],
     gradientClass: 'bg-gradient-game',
@@ -78,7 +137,7 @@ const projectsData = [
   },
   {
     id: 10,
-    title: 'Stockfish Online',
+    title: 'Stockfish Board',
     date: 'Jul 2026 – Present',
     category: 'game',
     description: 'Built a browser-based chess app for playing against Stockfish 18 with private on-device analysis, live evaluation, and configurable engine strength.',
@@ -98,19 +157,20 @@ const projectsData = [
   {
     id: 9,
     title: 'macmpv',
-    date: 'Aug 2026',
+    date: 'Aug 2026 – Present',
     category: 'native',
-    description: 'Developed a native macOS media player in SwiftUI with embedded, hardware-accelerated mpv playback and ffprobe-powered media metadata.',
+    description: 'Developed a native macOS media player in SwiftUI with embedded, hardware-accelerated mpv playback, torrent streaming, and signed automatic updates.',
     details: [
-      'Added local file and network-stream playback with queues, seeking, speed controls, track selection, subtitles, screenshots, and full-screen support.',
-      'Persisted per-file playback progress and intro/outro markers while providing drag-and-drop queue management and native keyboard commands.',
+      'Added local file, network-stream, and torrent playback with a persistent queue, instant seek previews, styleable subtitles, track selection, and full-screen support.',
+      'Showed per-video download progress, played saved torrents straight from disk, and stopped seeding once the queue finished.',
       'Wrapped libmpv for rendering and used FFmpeg to inspect duration, resolution, frame rate, codecs, and container formats.',
     ],
-    tags: ['Swift', 'SwiftUI', 'macOS', 'libmpv', 'FFmpeg', 'Swift Package Manager'],
+    tags: ['Swift', 'SwiftUI', 'macOS', 'libmpv', 'FFmpeg', 'libtorrent'],
     gradientClass: 'bg-gradient-media',
     icon: <Clapperboard className="project-banner-icon" />,
     links: [
-      { url: 'https://github.com/hhaider3/macmpv', label: 'Code', icon: <FaGithub size={16} /> }
+      { url: 'https://github.com/hhaider3/macmpv', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://macmpv.pages.dev/', label: 'Website', icon: <ExternalLink size={16} /> }
     ]
   },
   {
@@ -165,13 +225,13 @@ const projectsData = [
     gradientClass: 'bg-gradient-globe',
     icon: <Globe className="project-banner-icon" />,
     links: [
-      { url: 'https://github.com/hhaider3', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://github.com/hhaider3/hhaider3.github.io/tree/source', label: 'Code', icon: <FaGithub size={16} /> },
       { url: '#', label: 'Live Demo', icon: <ExternalLink size={16} />, appId: 'globe' }
     ]
   },
   {
     id: 4,
-    title: 'Motion Labs',
+    title: 'Motion Lab',
     date: 'Jun 2026',
     category: 'interactive',
     description: 'Created a browser-based motion lab that pairs a phone with a desktop viewport and turns live sensor data into a 3D sword interaction.',
@@ -184,7 +244,7 @@ const projectsData = [
     gradientClass: 'bg-gradient-motion',
     icon: <RadioTower className="project-banner-icon" />,
     links: [
-      { url: 'https://github.com/hhaider3', label: 'Code', icon: <FaGithub size={16} /> },
+      { url: 'https://github.com/hhaider3/motionlab', label: 'Code', icon: <FaGithub size={16} /> },
       { url: '#', label: 'Live Demo', icon: <ExternalLink size={16} />, appId: 'motion' }
     ]
   },
